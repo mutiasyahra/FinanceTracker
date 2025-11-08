@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons'; // ✅ tambahkan import ini
 
 // 🔹 Definisikan tipe props untuk komponen Header
 interface User {
@@ -17,16 +18,24 @@ const Header: React.FC<HeaderProps> = ({ user }) => {
 
   return (
     <View style={styles.container}>
+      {/* 🔸 Kiri: ikon + judul */}
       <View style={styles.leftSection}>
-        <Text style={styles.emoji}>💰</Text>
+        <Ionicons
+          name="wallet" // ✅ ganti emoji jadi ikon Ionicons
+          size={28}
+          color="#10B981"
+          style={styles.walletIcon}
+        />
         <Text style={styles.title}>Finance Tracker</Text>
       </View>
+
+      {/* 🔸 Kanan: info pengguna */}
       <View style={styles.rightSection}>
         <View style={styles.userInfo}>
           <Text style={styles.userName} numberOfLines={1}>
             {user.name}
           </Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
+          {/* <Text style={styles.userEmail}>{user.email}</Text> */}
         </View>
         <Image source={{ uri: user.avatar }} style={styles.avatar} />
       </View>
@@ -55,8 +64,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  emoji: {
-    fontSize: 24,
+  walletIcon: {
     marginRight: 8,
   },
   title: {

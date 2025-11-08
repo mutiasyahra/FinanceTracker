@@ -1,9 +1,9 @@
 // ⚠️ GANTI dengan URL API yang valid!
 // Untuk testing, gunakan JSONPlaceholder atau buat mock data
 const API_BASE_URL =
-  'https://f67948d1-b323-42e1-8d44-a149ccb731f5-00-rrgtwgd2jsgf.pike.replit.dev/ ';
+  'https://f67948d1-b323-42e1-8d44-a149ccb731f5-00-rrgtwgd2jsgf.pike.replit.dev/';
 
-// 📹 Tipe data dasar
+// 🔹 Tipe data dasar
 export interface User {
   id: number;
   name: string;
@@ -26,19 +26,24 @@ export interface Category {
 }
 
 export interface Budget {
-  id: number;
+  id: number | string;
   category: string;
   limit: number;
   spent: number;
+  period?: 'monthly' | 'weekly';
+  date?: string;
 }
 
 export interface Saving {
-  id: number;
+  id: number | string;
   goal: string;
   amount: number;
+  target?: number;
+  targetDate?: string;
+  icon?: string;
 }
 
-// 📹 Mock data sementara untuk testing
+// 🔹 Mock data sementara untuk testing
 const mockUser: User = {
   id: 1,
   name: 'John Doe',
@@ -96,20 +101,29 @@ const mockSavings: Saving[] = [
     id: 1,
     goal: 'Liburan ke Bali',
     amount: 5000000,
+    target: 15000000,
+    targetDate: '2025-12-31',
+    icon: 'airplane',
   },
   {
     id: 2,
     goal: 'Dana Darurat',
     amount: 10000000,
+    target: 30000000,
+    targetDate: '2025-12-31',
+    icon: 'shield-checkmark',
   },
   {
     id: 3,
     goal: 'Beli Laptop',
     amount: 8000000,
+    target: 20000000,
+    targetDate: '2025-06-30',
+    icon: 'laptop',
   },
 ];
 
-// 📹 Fetch user data
+// 🔹 Fetch user data
 export const fetchUserData = async (): Promise<User> => {
   try {
     // Gunakan mock data untuk testing
@@ -127,7 +141,7 @@ export const fetchUserData = async (): Promise<User> => {
   }
 };
 
-// 📹 Fetch transactions
+// 🔹 Fetch transactions
 export const fetchTransactions = async (): Promise<Transaction[]> => {
   try {
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -143,7 +157,7 @@ export const fetchTransactions = async (): Promise<Transaction[]> => {
   }
 };
 
-// 📹 Fetch categories
+// 🔹 Fetch categories
 export const fetchCategories = async (): Promise<Category[]> => {
   try {
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -158,7 +172,7 @@ export const fetchCategories = async (): Promise<Category[]> => {
   }
 };
 
-// 📹 Fetch budgets
+// 🔹 Fetch budgets
 export const fetchBudgets = async (): Promise<Budget[]> => {
   try {
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -174,7 +188,7 @@ export const fetchBudgets = async (): Promise<Budget[]> => {
   }
 };
 
-// 📹 Fetch savings
+// 🔹 Fetch savings
 export const fetchSavings = async (): Promise<Saving[]> => {
   try {
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -190,7 +204,7 @@ export const fetchSavings = async (): Promise<Saving[]> => {
   }
 };
 
-// 📹 Add new transaction
+// 🔹 Add new transaction
 export const addTransaction = async (
   transaction: Transaction,
 ): Promise<Transaction> => {
@@ -208,7 +222,7 @@ export const addTransaction = async (
   }
 };
 
-// 📹 Delete transaction
+// 🔹 Delete transaction
 export const deleteTransaction = async (id: number): Promise<boolean> => {
   try {
     const response = await fetch(`${API_BASE_URL}/transactions/${id}`, {
