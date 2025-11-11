@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import DashboardScreen from './src/screens/DashboardScreen';
 import TransactionsScreen from './src/screens/TransactionsScreen';
@@ -60,20 +61,25 @@ const AppHeader = ({
   onProfilePress: () => void;
 }) => {
   return (
-    <View style={styles.header}>
-      <View style={styles.headerLeft}>
-        <Ionicons name="wallet" size={28} color="#10B981" />
-        <Text style={styles.headerTitle}>Finance Tracker</Text>
+    <SafeAreaView style={styles.headerSafeArea}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Ionicons name="wallet" size={28} color="#10B981" />
+          <Text style={styles.headerTitle}>Finance Tracker</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={onProfilePress}
+        >
+          <Ionicons name="person-circle" size={40} color="#10B981" />
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity style={styles.avatarContainer} onPress={onProfilePress}>
-        <Ionicons name="person-circle" size={40} color="#10B981" />
-      </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 };
 
 function App() {
-  // 🔄 State Management
+  // 📄 State Management
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +94,7 @@ function App() {
     loadData();
   }, []);
 
-  // 🔄 Load data from API
+  // 📄 Load data from API
   const loadData = async (showRefreshToast = false) => {
     try {
       setError(null);
@@ -307,137 +313,147 @@ function App() {
   }
 
   return (
-    <NavigationContainer>
-      <AppHeader user={user} onProfilePress={() => setShowProfile(true)} />
-      {/* @ts-ignore */}
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarIcon: ({ focused, color, size }) => {
-            let iconName = 'help-outline';
-            switch (route.name) {
-              case 'Dashboard':
-                iconName = focused ? 'home' : 'home-outline';
-                break;
-              case 'Transaksi':
-                iconName = focused
-                  ? 'swap-horizontal'
-                  : 'swap-horizontal-outline';
-                break;
-              case 'Budget':
-                iconName = focused ? 'wallet' : 'wallet-outline';
-                break;
-              case 'Tabungan':
-                iconName = focused ? 'cash' : 'cash-outline';
-                break;
-            }
-            return <Ionicons name={iconName} size={size} color={color} />;
-          },
-          tabBarActiveTintColor: '#10B981',
-          tabBarInactiveTintColor: '#9CA3AF',
-          tabBarStyle: {
-            height: 60,
-            paddingBottom: 8,
-            paddingTop: 8,
-            borderTopWidth: 1,
-            borderTopColor: '#E5E7EB',
-            backgroundColor: '#FFFFFF',
-            elevation: 8,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-          },
-          tabBarLabelStyle: {
-            fontSize: 12,
-            fontWeight: '600',
-          },
-        })}
-      >
-        <Tab.Screen name="Dashboard" options={{ title: 'Dashboard' }}>
-          {() => (
-            <DashboardScreen
-              user={user}
-              transactions={transactions}
-              budgets={budgets}
-              savings={savings}
-              onRefresh={handleRefresh}
-              refreshing={refreshing}
-            />
-          )}
-        </Tab.Screen>
+    <View style={styles.appContainer}>
+      <NavigationContainer>
+        <AppHeader user={user} onProfilePress={() => setShowProfile(true)} />
+        {/* @ts-ignore */}
+        <Tab.Navigator
+          screenOptions={({ route }) => ({
+            headerShown: false,
+            tabBarIcon: ({ focused, color, size }) => {
+              let iconName = 'help-outline';
+              switch (route.name) {
+                case 'Dashboard':
+                  iconName = focused ? 'home' : 'home-outline';
+                  break;
+                case 'Transaksi':
+                  iconName = focused
+                    ? 'swap-horizontal'
+                    : 'swap-horizontal-outline';
+                  break;
+                case 'Budget':
+                  iconName = focused ? 'wallet' : 'wallet-outline';
+                  break;
+                case 'Tabungan':
+                  iconName = focused ? 'cash' : 'cash-outline';
+                  break;
+              }
+              return <Ionicons name={iconName} size={size} color={color} />;
+            },
+            tabBarActiveTintColor: '#10B981',
+            tabBarInactiveTintColor: '#9CA3AF',
+            tabBarStyle: {
+              height: 60,
+              paddingBottom: 8,
+              paddingTop: 8,
+              borderTopWidth: 1,
+              borderTopColor: '#E5E7EB',
+              backgroundColor: '#FFFFFF',
+              elevation: 8,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+            },
+            tabBarLabelStyle: {
+              fontSize: 12,
+              fontWeight: '600',
+            },
+          })}
+        >
+          <Tab.Screen name="Dashboard" options={{ title: 'Dashboard' }}>
+            {() => (
+              <DashboardScreen
+                user={user}
+                transactions={transactions}
+                budgets={budgets}
+                savings={savings}
+                onRefresh={handleRefresh}
+                refreshing={refreshing}
+              />
+            )}
+          </Tab.Screen>
 
-        <Tab.Screen name="Transaksi" options={{ title: 'Transaksi' }}>
-          {() => (
-            <TransactionsScreen
-              transactions={transactions}
-              onAddTransaction={handleAddTransaction}
-              onRefresh={handleRefresh}
-              refreshing={refreshing}
-            />
-          )}
-        </Tab.Screen>
+          <Tab.Screen name="Transaksi" options={{ title: 'Transaksi' }}>
+            {() => (
+              <TransactionsScreen
+                transactions={transactions}
+                onAddTransaction={handleAddTransaction}
+                onRefresh={handleRefresh}
+                refreshing={refreshing}
+              />
+            )}
+          </Tab.Screen>
 
-        <Tab.Screen name="Budget" options={{ title: 'Budget' }}>
-          {() => (
-            <BudgetScreen
-              budgets={budgets}
-              onAddBudget={handleAddBudget}
-              onUpdateBudget={handleUpdateBudget}
-              onDeleteBudget={handleDeleteBudget}
-              onRefresh={handleRefresh}
-              refreshing={refreshing}
-            />
-          )}
-        </Tab.Screen>
+          <Tab.Screen name="Budget" options={{ title: 'Budget' }}>
+            {() => (
+              <BudgetScreen
+                budgets={budgets}
+                onAddBudget={handleAddBudget}
+                onUpdateBudget={handleUpdateBudget}
+                onDeleteBudget={handleDeleteBudget}
+                onRefresh={handleRefresh}
+                refreshing={refreshing}
+              />
+            )}
+          </Tab.Screen>
 
-        <Tab.Screen name="Tabungan" options={{ title: 'Tabungan' }}>
-          {() => (
-            <SavingsScreen
-              savings={savings}
-              onAddSaving={handleAddSaving}
-              onUpdateSaving={handleUpdateSaving}
-              onDeleteSaving={handleDeleteSaving}
-              onRefresh={handleRefresh}
-              refreshing={refreshing}
-            />
-          )}
-        </Tab.Screen>
-      </Tab.Navigator>
+          <Tab.Screen name="Tabungan" options={{ title: 'Tabungan' }}>
+            {() => (
+              <SavingsScreen
+                savings={savings}
+                onAddSaving={handleAddSaving}
+                onUpdateSaving={handleUpdateSaving}
+                onDeleteSaving={handleDeleteSaving}
+                onRefresh={handleRefresh}
+                refreshing={refreshing}
+              />
+            )}
+          </Tab.Screen>
+        </Tab.Navigator>
 
-      {/* 📱 Profile Modal */}
-      <Modal
-        visible={showProfile}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowProfile(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Profile</Text>
-            <TouchableOpacity
-              onPress={() => setShowProfile(false)}
-              style={styles.modalCloseButton}
-            >
-              <Ionicons name="close" size={28} color="#111827" />
-            </TouchableOpacity>
-          </View>
-          <ProfileScreen user={user} transactions={transactions} />
-        </View>
-      </Modal>
-    </NavigationContainer>
+        {/* 📱 Profile Modal */}
+        <Modal
+          visible={showProfile}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setShowProfile(false)}
+        >
+          <SafeAreaView style={styles.modalSafeArea}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Profile</Text>
+                <TouchableOpacity
+                  onPress={() => setShowProfile(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons name="close" size={28} color="#111827" />
+                </TouchableOpacity>
+              </View>
+              <ProfileScreen user={user} transactions={transactions} />
+            </View>
+          </SafeAreaView>
+        </Modal>
+      </NavigationContainer>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  appContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  headerSafeArea: {
+    backgroundColor: '#FFFFFF',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 12,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
     elevation: 4,
@@ -463,6 +479,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  modalSafeArea: {
+    flex: 1,
+    backgroundColor: '#E8F5E9',
+  },
   modalContainer: {
     flex: 1,
     backgroundColor: '#E8F5E9',
@@ -472,8 +492,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 16,
+    paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',

@@ -136,7 +136,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <Text style={styles.summaryValue}>{transactions.length}</Text>
           </View>
           <Ionicons
-            name="list"
+            name="swap-horizontal"
             size={48}
             color="#10B981"
             style={styles.summaryIconStyle}
@@ -162,7 +162,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <Text style={styles.summaryValue}>{savingsTargets}</Text>
           </View>
           <Ionicons
-            name="target"
+            name="cash"
             size={48}
             color="#8B5CF6"
             style={styles.summaryIconStyle}

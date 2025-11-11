@@ -9,6 +9,7 @@ import {
   ScrollView,
   Modal,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -98,207 +99,218 @@ const AddSavingScreen: React.FC<AddSavingScreenProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color="#111827" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Tambah Target Tabungan</Text>
-          <View style={styles.placeholder} />
-        </View>
-
-        <ScrollView style={styles.content}>
-          {/* Info Card */}
-          <View style={styles.infoCard}>
-            <Ionicons
-              name="bulb"
-              size={24}
-              color="#065F46"
-              style={styles.infoIcon}
-            />
-            <Text style={styles.infoText}>
-              Tetapkan target tabungan untuk mencapai tujuan finansial Anda
-            </Text>
-          </View>
-
-          {/* Icon Selection */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Pilih Icon</Text>
-            <View style={styles.iconGrid}>
-              {goalIcons.map(item => (
-                <TouchableOpacity
-                  key={item.icon}
-                  style={[
-                    styles.iconItem,
-                    selectedIcon === item.icon && styles.iconItemActive,
-                  ]}
-                  onPress={() => setSelectedIcon(item.icon)}
-                >
-                  <View
-                    style={[
-                      styles.iconContainer,
-                      selectedIcon === item.icon && styles.iconContainerActive,
-                    ]}
-                  >
-                    <Ionicons
-                      name={item.icon}
-                      size={28}
-                      color={selectedIcon === item.icon ? '#10B981' : '#6B7280'}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.iconName,
-                      selectedIcon === item.icon && styles.iconNameActive,
-                    ]}
-                  >
-                    {item.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Goal Name Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nama Target</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Contoh: Laptop Baru"
-              value={goal}
-              onChangeText={setGoal}
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          {/* Target Amount Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Target Jumlah</Text>
-            <View style={styles.amountInput}>
-              <Text style={styles.currency}>Rp</Text>
-              <TextInput
-                style={styles.amountTextInput}
-                placeholder="0"
-                keyboardType="numeric"
-                value={targetAmount}
-                onChangeText={setTargetAmount}
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-          </View>
-
-          {/* Current Amount Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Jumlah Saat Ini (Opsional)</Text>
-            <View style={styles.amountInput}>
-              <Text style={styles.currency}>Rp</Text>
-              <TextInput
-                style={styles.amountTextInput}
-                placeholder="0"
-                keyboardType="numeric"
-                value={currentAmount}
-                onChangeText={setCurrentAmount}
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-            <Text style={styles.hint}>
-              Masukkan jumlah yang sudah Anda tabung saat ini
-            </Text>
-          </View>
-
-          {/* Target Date Picker */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Target Tanggal</Text>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Ionicons name="calendar-outline" size={20} color="#6B7280" />
-              <Text style={styles.dateText}>{formatDate(targetDate)}</Text>
-              <Ionicons name="chevron-down" size={20} color="#6B7280" />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={28} color="#111827" />
             </TouchableOpacity>
+            <Text style={styles.headerTitle}>Tambah Target Tabungan</Text>
+            <View style={styles.placeholder} />
           </View>
 
-          {showDatePicker && (
-            <DateTimePicker
-              value={targetDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onDateChange}
-              minimumDate={new Date()}
-            />
-          )}
+          <ScrollView style={styles.content}>
+            {/* Info Card */}
+            <View style={styles.infoCard}>
+              <Ionicons
+                name="bulb"
+                size={24}
+                color="#065F46"
+                style={styles.infoIcon}
+              />
+              <Text style={styles.infoText}>
+                Tetapkan target tabungan untuk mencapai tujuan finansial Anda
+              </Text>
+            </View>
 
-          {/* Preview Card */}
-          {goal && targetAmount && selectedIcon && (
-            <View style={styles.previewCard}>
-              <Text style={styles.previewTitle}>Preview Target</Text>
-              <View style={styles.previewContent}>
-                <View style={styles.previewIconCircle}>
-                  <Ionicons name={selectedIcon} size={48} color="#10B981" />
-                </View>
-                <Text style={styles.previewGoal}>{goal}</Text>
-                <Text style={styles.previewDate}>
-                  Target: {formatDate(targetDate)}
-                </Text>
-
-                <View style={styles.progressSection}>
-                  <View style={styles.progressHeader}>
-                    <Text style={styles.progressLabel}>Progress</Text>
-                    <Text style={styles.progressPercentage}>
-                      {calculateProgress().toFixed(0)}%
-                    </Text>
-                  </View>
-                  <View style={styles.progressBarContainer}>
+            {/* Icon Selection */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Pilih Icon</Text>
+              <View style={styles.iconGrid}>
+                {goalIcons.map(item => (
+                  <TouchableOpacity
+                    key={item.icon}
+                    style={[
+                      styles.iconItem,
+                      selectedIcon === item.icon && styles.iconItemActive,
+                    ]}
+                    onPress={() => setSelectedIcon(item.icon)}
+                  >
                     <View
                       style={[
-                        styles.progressBar,
-                        { width: `${calculateProgress()}%` },
+                        styles.iconContainer,
+                        selectedIcon === item.icon &&
+                          styles.iconContainerActive,
                       ]}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.amountRow}>
-                  <View style={styles.amountBox}>
-                    <Text style={styles.amountBoxLabel}>Terkumpul</Text>
-                    <Text style={styles.currentAmountText}>
-                      Rp{' '}
-                      {(parseFloat(currentAmount) || 0).toLocaleString('id-ID')}
+                    >
+                      <Ionicons
+                        name={item.icon}
+                        size={28}
+                        color={
+                          selectedIcon === item.icon ? '#10B981' : '#6B7280'
+                        }
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.iconName,
+                        selectedIcon === item.icon && styles.iconNameActive,
+                      ]}
+                    >
+                      {item.name}
                     </Text>
-                  </View>
-                  <View style={styles.amountBox}>
-                    <Text style={styles.amountBoxLabel}>Target</Text>
-                    <Text style={styles.targetAmountText}>
-                      Rp {parseFloat(targetAmount).toLocaleString('id-ID')}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.remainingBox}>
-                  <Text style={styles.remainingLabel}>Sisa</Text>
-                  <Text style={styles.remainingAmount}>
-                    Rp {calculateRemaining().toLocaleString('id-ID')}
-                  </Text>
-                </View>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
-          )}
-        </ScrollView>
 
-        {/* Save Button */}
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Simpan Target</Text>
-          </TouchableOpacity>
+            {/* Goal Name Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nama Target</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Contoh: Laptop Baru"
+                value={goal}
+                onChangeText={setGoal}
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            {/* Target Amount Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Target Jumlah</Text>
+              <View style={styles.amountInput}>
+                <Text style={styles.currency}>Rp</Text>
+                <TextInput
+                  style={styles.amountTextInput}
+                  placeholder="0"
+                  keyboardType="numeric"
+                  value={targetAmount}
+                  onChangeText={setTargetAmount}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </View>
+
+            {/* Current Amount Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Jumlah Saat Ini (Opsional)</Text>
+              <View style={styles.amountInput}>
+                <Text style={styles.currency}>Rp</Text>
+                <TextInput
+                  style={styles.amountTextInput}
+                  placeholder="0"
+                  keyboardType="numeric"
+                  value={currentAmount}
+                  onChangeText={setCurrentAmount}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+              <Text style={styles.hint}>
+                Masukkan jumlah yang sudah Anda tabung saat ini
+              </Text>
+            </View>
+
+            {/* Target Date Picker */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Target Tanggal</Text>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#6B7280" />
+                <Text style={styles.dateText}>{formatDate(targetDate)}</Text>
+                <Ionicons name="chevron-down" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={targetDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onDateChange}
+                minimumDate={new Date()}
+              />
+            )}
+
+            {/* Preview Card */}
+            {goal && targetAmount && selectedIcon && (
+              <View style={styles.previewCard}>
+                <Text style={styles.previewTitle}>Preview Target</Text>
+                <View style={styles.previewContent}>
+                  <View style={styles.previewIconCircle}>
+                    <Ionicons name={selectedIcon} size={48} color="#10B981" />
+                  </View>
+                  <Text style={styles.previewGoal}>{goal}</Text>
+                  <Text style={styles.previewDate}>
+                    Target: {formatDate(targetDate)}
+                  </Text>
+
+                  <View style={styles.progressSection}>
+                    <View style={styles.progressHeader}>
+                      <Text style={styles.progressLabel}>Progress</Text>
+                      <Text style={styles.progressPercentage}>
+                        {calculateProgress().toFixed(0)}%
+                      </Text>
+                    </View>
+                    <View style={styles.progressBarContainer}>
+                      <View
+                        style={[
+                          styles.progressBar,
+                          { width: `${calculateProgress()}%` },
+                        ]}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.amountRow}>
+                    <View style={styles.amountBox}>
+                      <Text style={styles.amountBoxLabel}>Terkumpul</Text>
+                      <Text style={styles.currentAmountText}>
+                        Rp{' '}
+                        {(parseFloat(currentAmount) || 0).toLocaleString(
+                          'id-ID',
+                        )}
+                      </Text>
+                    </View>
+                    <View style={styles.amountBox}>
+                      <Text style={styles.amountBoxLabel}>Target</Text>
+                      <Text style={styles.targetAmountText}>
+                        Rp {parseFloat(targetAmount).toLocaleString('id-ID')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.remainingBox}>
+                    <Text style={styles.remainingLabel}>Sisa</Text>
+                    <Text style={styles.remainingAmount}>
+                      Rp {calculateRemaining().toLocaleString('id-ID')}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Save Button */}
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+              <Text style={styles.saveButtonText}>Simpan Target</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
@@ -308,8 +320,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 16,
+    paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',

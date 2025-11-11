@@ -9,6 +9,7 @@ import {
   ScrollView,
   Modal,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -105,231 +106,237 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color="#111827" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Tambah Transaksi</Text>
-          <View style={styles.placeholder} />
-        </View>
-
-        <ScrollView style={styles.content}>
-          {/* Type Toggle */}
-          <View style={styles.typeToggle}>
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                type === 'income' && styles.typeButtonActive,
-                type === 'income' && styles.incomeActive,
-              ]}
-              onPress={() => {
-                setType('income');
-                setCategory('');
-              }}
-            >
-              <Ionicons
-                name="trending-up"
-                size={20}
-                color={type === 'income' ? '#10B981' : '#6B7280'}
-              />
-              <Text
-                style={[
-                  styles.typeButtonText,
-                  type === 'income' && styles.typeButtonTextActive,
-                ]}
-              >
-                Pemasukan
-              </Text>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={28} color="#111827" />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                type === 'expense' && styles.typeButtonActive,
-                type === 'expense' && styles.expenseActive,
-              ]}
-              onPress={() => {
-                setType('expense');
-                setCategory('');
-              }}
-            >
-              <Ionicons
-                name="trending-down"
-                size={20}
-                color={type === 'expense' ? '#EF4444' : '#6B7280'}
-              />
-              <Text
-                style={[
-                  styles.typeButtonText,
-                  type === 'expense' && styles.typeButtonTextActive,
-                ]}
-              >
-                Pengeluaran
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Tambah Transaksi</Text>
+            <View style={styles.placeholder} />
           </View>
 
-          {/* Amount Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Jumlah</Text>
-            <View style={styles.amountInput}>
-              <Text style={styles.currency}>Rp</Text>
+          <ScrollView style={styles.content}>
+            {/* Type Toggle */}
+            <View style={styles.typeToggle}>
+              <TouchableOpacity
+                style={[
+                  styles.typeButton,
+                  type === 'income' && styles.typeButtonActive,
+                  type === 'income' && styles.incomeActive,
+                ]}
+                onPress={() => {
+                  setType('income');
+                  setCategory('');
+                }}
+              >
+                <Ionicons
+                  name="trending-up"
+                  size={20}
+                  color={type === 'income' ? '#10B981' : '#6B7280'}
+                />
+                <Text
+                  style={[
+                    styles.typeButtonText,
+                    type === 'income' && styles.typeButtonTextActive,
+                  ]}
+                >
+                  Pemasukan
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.typeButton,
+                  type === 'expense' && styles.typeButtonActive,
+                  type === 'expense' && styles.expenseActive,
+                ]}
+                onPress={() => {
+                  setType('expense');
+                  setCategory('');
+                }}
+              >
+                <Ionicons
+                  name="trending-down"
+                  size={20}
+                  color={type === 'expense' ? '#EF4444' : '#6B7280'}
+                />
+                <Text
+                  style={[
+                    styles.typeButtonText,
+                    type === 'expense' && styles.typeButtonTextActive,
+                  ]}
+                >
+                  Pengeluaran
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Amount Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Jumlah</Text>
+              <View style={styles.amountInput}>
+                <Text style={styles.currency}>Rp</Text>
+                <TextInput
+                  style={styles.amountTextInput}
+                  placeholder="0"
+                  keyboardType="numeric"
+                  value={amount}
+                  onChangeText={setAmount}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </View>
+
+            {/* Description Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Deskripsi</Text>
               <TextInput
-                style={styles.amountTextInput}
-                placeholder="0"
-                keyboardType="numeric"
-                value={amount}
-                onChangeText={setAmount}
+                style={styles.input}
+                placeholder="Contoh: Belanja bulanan"
+                value={description}
+                onChangeText={setDescription}
                 placeholderTextColor="#9CA3AF"
               />
             </View>
-          </View>
 
-          {/* Description Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Deskripsi</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Contoh: Belanja bulanan"
-              value={description}
-              onChangeText={setDescription}
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          {/* Category Selection */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Kategori</Text>
-            <View style={styles.categoryGrid}>
-              {categories.map(cat => (
-                <TouchableOpacity
-                  key={cat.name}
-                  style={[
-                    styles.categoryItem,
-                    category === cat.name && styles.categoryItemActive,
-                    category === cat.name && {
-                      borderColor: cat.color,
-                      backgroundColor: cat.color + '20',
-                    },
-                  ]}
-                  onPress={() => setCategory(cat.name)}
-                >
-                  <View
+            {/* Category Selection */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Kategori</Text>
+              <View style={styles.categoryGrid}>
+                {categories.map(cat => (
+                  <TouchableOpacity
+                    key={cat.name}
                     style={[
-                      styles.categoryIconContainer,
+                      styles.categoryItem,
+                      category === cat.name && styles.categoryItemActive,
                       category === cat.name && {
-                        backgroundColor: cat.color + '30',
+                        borderColor: cat.color,
+                        backgroundColor: cat.color + '20',
                       },
                     ]}
+                    onPress={() => setCategory(cat.name)}
                   >
-                    <Ionicons
-                      name={cat.icon}
-                      size={24}
-                      color={category === cat.name ? cat.color : '#6B7280'}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.categoryName,
-                      category === cat.name && { color: cat.color },
-                    ]}
-                  >
-                    {cat.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Date Picker */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Tanggal</Text>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Ionicons name="calendar-outline" size={20} color="#6B7280" />
-              <Text style={styles.dateText}>{formatDate(date)}</Text>
-              <Ionicons name="chevron-down" size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-
-          {showDatePicker && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onDateChange}
-              maximumDate={new Date()}
-            />
-          )}
-
-          {/* Preview */}
-          {amount && description && category && (
-            <View style={styles.previewCard}>
-              <Text style={styles.previewTitle}>Preview</Text>
-              <View style={styles.previewContent}>
-                <View style={styles.previewRow}>
-                  <Text style={styles.previewLabel}>Tipe:</Text>
-                  <View
-                    style={[
-                      styles.previewBadge,
-                      {
-                        backgroundColor:
-                          type === 'income' ? '#D1FAE5' : '#FEE2E2',
-                      },
-                    ]}
-                  >
-                    <Text
+                    <View
                       style={[
-                        styles.previewBadgeText,
-                        {
-                          color: type === 'income' ? '#10B981' : '#EF4444',
+                        styles.categoryIconContainer,
+                        category === cat.name && {
+                          backgroundColor: cat.color + '30',
                         },
                       ]}
                     >
-                      {type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+                      <Ionicons
+                        name={cat.icon}
+                        size={24}
+                        color={category === cat.name ? cat.color : '#6B7280'}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.categoryName,
+                        category === cat.name && { color: cat.color },
+                      ]}
+                    >
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Date Picker */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Tanggal</Text>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#6B7280" />
+                <Text style={styles.dateText}>{formatDate(date)}</Text>
+                <Ionicons name="chevron-down" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={date}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onDateChange}
+                maximumDate={new Date()}
+              />
+            )}
+
+            {/* Preview */}
+            {amount && description && category && (
+              <View style={styles.previewCard}>
+                <Text style={styles.previewTitle}>Preview</Text>
+                <View style={styles.previewContent}>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewLabel}>Tipe:</Text>
+                    <View
+                      style={[
+                        styles.previewBadge,
+                        {
+                          backgroundColor:
+                            type === 'income' ? '#D1FAE5' : '#FEE2E2',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.previewBadgeText,
+                          {
+                            color: type === 'income' ? '#10B981' : '#EF4444',
+                          },
+                        ]}
+                      >
+                        {type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewLabel}>Kategori:</Text>
+                    <Text style={styles.previewValue}>{category}</Text>
+                  </View>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewLabel}>Deskripsi:</Text>
+                    <Text style={styles.previewValue}>{description}</Text>
+                  </View>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewLabel}>Jumlah:</Text>
+                    <Text
+                      style={[
+                        styles.previewAmount,
+                        { color: type === 'income' ? '#10B981' : '#EF4444' },
+                      ]}
+                    >
+                      {type === 'income' ? '+' : '-'} Rp{' '}
+                      {parseFloat(amount).toLocaleString('id-ID')}
                     </Text>
                   </View>
                 </View>
-                <View style={styles.previewRow}>
-                  <Text style={styles.previewLabel}>Kategori:</Text>
-                  <Text style={styles.previewValue}>{category}</Text>
-                </View>
-                <View style={styles.previewRow}>
-                  <Text style={styles.previewLabel}>Deskripsi:</Text>
-                  <Text style={styles.previewValue}>{description}</Text>
-                </View>
-                <View style={styles.previewRow}>
-                  <Text style={styles.previewLabel}>Jumlah:</Text>
-                  <Text
-                    style={[
-                      styles.previewAmount,
-                      { color: type === 'income' ? '#10B981' : '#EF4444' },
-                    ]}
-                  >
-                    {type === 'income' ? '+' : '-'} Rp{' '}
-                    {parseFloat(amount).toLocaleString('id-ID')}
-                  </Text>
-                </View>
               </View>
-            </View>
-          )}
-        </ScrollView>
+            )}
+          </ScrollView>
 
-        {/* Save Button */}
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Simpan Transaksi</Text>
-          </TouchableOpacity>
+          {/* Save Button */}
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+              <Text style={styles.saveButtonText}>Simpan Transaksi</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
@@ -339,8 +346,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 16,
+    paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',

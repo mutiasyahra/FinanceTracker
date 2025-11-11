@@ -9,6 +9,7 @@ import {
   ScrollView,
   Modal,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -84,218 +85,224 @@ const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color="#111827" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Tambah Budget</Text>
-          <View style={styles.placeholder} />
-        </View>
-
-        <ScrollView style={styles.content}>
-          {/* Info Card */}
-          <View style={styles.infoCard}>
-            <Ionicons
-              name="bulb"
-              size={24}
-              color="#1E40AF"
-              style={styles.infoIcon}
-            />
-            <Text style={styles.infoText}>
-              Atur budget untuk mengontrol pengeluaran Anda per kategori
-            </Text>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={28} color="#111827" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Tambah Budget</Text>
+            <View style={styles.placeholder} />
           </View>
 
-          {/* Period Selection */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Periode Budget</Text>
-            <View style={styles.periodToggle}>
-              <TouchableOpacity
-                style={[
-                  styles.periodButton,
-                  period === 'monthly' && styles.periodButtonActive,
-                ]}
-                onPress={() => setPeriod('monthly')}
-              >
-                <Ionicons
-                  name="calendar"
-                  size={20}
-                  color={period === 'monthly' ? '#FFFFFF' : '#6B7280'}
-                />
-                <Text
-                  style={[
-                    styles.periodButtonText,
-                    period === 'monthly' && styles.periodButtonTextActive,
-                  ]}
-                >
-                  Bulanan
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.periodButton,
-                  period === 'weekly' && styles.periodButtonActive,
-                ]}
-                onPress={() => setPeriod('weekly')}
-              >
-                <Ionicons
-                  name="calendar-outline"
-                  size={20}
-                  color={period === 'weekly' ? '#FFFFFF' : '#6B7280'}
-                />
-                <Text
-                  style={[
-                    styles.periodButtonText,
-                    period === 'weekly' && styles.periodButtonTextActive,
-                  ]}
-                >
-                  Mingguan
-                </Text>
-              </TouchableOpacity>
+          <ScrollView style={styles.content}>
+            {/* Info Card */}
+            <View style={styles.infoCard}>
+              <Ionicons
+                name="bulb"
+                size={24}
+                color="#1E40AF"
+                style={styles.infoIcon}
+              />
+              <Text style={styles.infoText}>
+                Atur budget untuk mengontrol pengeluaran Anda per kategori
+              </Text>
             </View>
-          </View>
 
-          {/* Category Selection */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Pilih Kategori</Text>
-            <View style={styles.categoryGrid}>
-              {categories.map(cat => (
+            {/* Period Selection */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Periode Budget</Text>
+              <View style={styles.periodToggle}>
                 <TouchableOpacity
-                  key={cat.name}
                   style={[
-                    styles.categoryItem,
-                    category === cat.name && styles.categoryItemActive,
-                    category === cat.name && {
-                      borderColor: cat.color,
-                      backgroundColor: cat.color + '20',
-                    },
+                    styles.periodButton,
+                    period === 'monthly' && styles.periodButtonActive,
                   ]}
-                  onPress={() => setCategory(cat.name)}
+                  onPress={() => setPeriod('monthly')}
                 >
-                  <View
-                    style={[
-                      styles.categoryIconContainer,
-                      category === cat.name && {
-                        backgroundColor: cat.color + '30',
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={cat.icon}
-                      size={24}
-                      color={category === cat.name ? cat.color : '#6B7280'}
-                    />
-                  </View>
+                  <Ionicons
+                    name="calendar"
+                    size={20}
+                    color={period === 'monthly' ? '#FFFFFF' : '#6B7280'}
+                  />
                   <Text
                     style={[
-                      styles.categoryName,
-                      category === cat.name && { color: cat.color },
+                      styles.periodButtonText,
+                      period === 'monthly' && styles.periodButtonTextActive,
                     ]}
                   >
-                    {cat.name}
+                    Bulanan
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Budget Limit Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Limit Budget</Text>
-            <View style={styles.amountInput}>
-              <Text style={styles.currency}>Rp</Text>
-              <TextInput
-                style={styles.amountTextInput}
-                placeholder="0"
-                keyboardType="numeric"
-                value={limit}
-                onChangeText={setLimit}
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-            <Text style={styles.hint}>
-              Budget maksimal untuk kategori {category || 'yang dipilih'} per{' '}
-              {period === 'monthly' ? 'bulan' : 'minggu'}
-            </Text>
-          </View>
-
-          {/* Date Picker */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Tanggal Mulai</Text>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Ionicons name="calendar-outline" size={20} color="#6B7280" />
-              <Text style={styles.dateText}>{formatDate(date)}</Text>
-              <Ionicons name="chevron-down" size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-
-          {showDatePicker && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onDateChange}
-            />
-          )}
-
-          {/* Preview Card */}
-          {category && limit && (
-            <View style={styles.previewCard}>
-              <Text style={styles.previewTitle}>Preview Budget</Text>
-              <View style={styles.previewContent}>
-                <View style={styles.previewHeader}>
-                  <View
+                <TouchableOpacity
+                  style={[
+                    styles.periodButton,
+                    period === 'weekly' && styles.periodButtonActive,
+                  ]}
+                  onPress={() => setPeriod('weekly')}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={20}
+                    color={period === 'weekly' ? '#FFFFFF' : '#6B7280'}
+                  />
+                  <Text
                     style={[
-                      styles.previewIconContainer,
-                      {
-                        backgroundColor:
-                          categories.find(c => c.name === category)?.color +
-                          '20',
-                      },
+                      styles.periodButtonText,
+                      period === 'weekly' && styles.periodButtonTextActive,
                     ]}
                   >
-                    <Ionicons
-                      name={
-                        categories.find(c => c.name === category)?.icon ||
-                        'wallet'
-                      }
-                      size={32}
-                      color={categories.find(c => c.name === category)?.color}
-                    />
-                  </View>
-                  <View>
-                    <Text style={styles.previewCategory}>{category}</Text>
-                    <Text style={styles.previewPeriod}>
-                      Budget {period === 'monthly' ? 'Bulanan' : 'Mingguan'}
-                    </Text>
-                    <Text style={styles.previewDate}>{formatDate(date)}</Text>
-                  </View>
-                </View>
-                <Text style={styles.previewAmount}>
-                  Rp {parseFloat(limit).toLocaleString('id-ID')}
-                </Text>
+                    Mingguan
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
-          )}
-        </ScrollView>
 
-        {/* Save Button */}
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Simpan Budget</Text>
-          </TouchableOpacity>
+            {/* Category Selection */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Pilih Kategori</Text>
+              <View style={styles.categoryGrid}>
+                {categories.map(cat => (
+                  <TouchableOpacity
+                    key={cat.name}
+                    style={[
+                      styles.categoryItem,
+                      category === cat.name && styles.categoryItemActive,
+                      category === cat.name && {
+                        borderColor: cat.color,
+                        backgroundColor: cat.color + '20',
+                      },
+                    ]}
+                    onPress={() => setCategory(cat.name)}
+                  >
+                    <View
+                      style={[
+                        styles.categoryIconContainer,
+                        category === cat.name && {
+                          backgroundColor: cat.color + '30',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={cat.icon}
+                        size={24}
+                        color={category === cat.name ? cat.color : '#6B7280'}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.categoryName,
+                        category === cat.name && { color: cat.color },
+                      ]}
+                    >
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Budget Limit Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Limit Budget</Text>
+              <View style={styles.amountInput}>
+                <Text style={styles.currency}>Rp</Text>
+                <TextInput
+                  style={styles.amountTextInput}
+                  placeholder="0"
+                  keyboardType="numeric"
+                  value={limit}
+                  onChangeText={setLimit}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+              <Text style={styles.hint}>
+                Budget maksimal untuk kategori {category || 'yang dipilih'} per{' '}
+                {period === 'monthly' ? 'bulan' : 'minggu'}
+              </Text>
+            </View>
+
+            {/* Date Picker */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Tanggal Mulai</Text>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#6B7280" />
+                <Text style={styles.dateText}>{formatDate(date)}</Text>
+                <Ionicons name="chevron-down" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={date}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onDateChange}
+              />
+            )}
+
+            {/* Preview Card */}
+            {category && limit && (
+              <View style={styles.previewCard}>
+                <Text style={styles.previewTitle}>Preview Budget</Text>
+                <View style={styles.previewContent}>
+                  <View style={styles.previewHeader}>
+                    <View
+                      style={[
+                        styles.previewIconContainer,
+                        {
+                          backgroundColor:
+                            categories.find(c => c.name === category)?.color +
+                            '20',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          categories.find(c => c.name === category)?.icon ||
+                          'wallet'
+                        }
+                        size={32}
+                        color={categories.find(c => c.name === category)?.color}
+                      />
+                    </View>
+                    <View>
+                      <Text style={styles.previewCategory}>{category}</Text>
+                      <Text style={styles.previewPeriod}>
+                        Budget {period === 'monthly' ? 'Bulanan' : 'Mingguan'}
+                      </Text>
+                      <Text style={styles.previewDate}>{formatDate(date)}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.previewAmount}>
+                    Rp {parseFloat(limit).toLocaleString('id-ID')}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Save Button */}
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+              <Text style={styles.saveButtonText}>Simpan Budget</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
@@ -305,8 +312,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 16,
+    paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
