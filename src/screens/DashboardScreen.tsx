@@ -1,5 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+} from 'react-native';
 import { formatCurrency, formatDate } from '../utils/formatCurrency';
 import { User, Transaction, Budget, Saving } from '../api/api';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -9,6 +15,8 @@ type DashboardScreenProps = {
   transactions: Transaction[];
   budgets: Budget[];
   savings: Saving[];
+  onRefresh?: () => void;
+  refreshing?: boolean;
 };
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({
@@ -16,6 +24,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   transactions,
   budgets,
   savings,
+  onRefresh,
+  refreshing = false,
 }) => {
   if (!user) {
     return (
@@ -25,6 +35,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     );
   }
 
+  // 📊 Calculate statistics
   const totalIncome = transactions
     .filter(t => t.amount > 0)
     .reduce((sum, t) => sum + t.amount, 0);
@@ -33,10 +44,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     .filter(t => t.amount < 0)
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-  const recentTransactions = transactions.slice(0, 3);
+  const recentTransactions = transactions.slice(0, 5); // Show 5 recent transactions
   const activeBudgets = budgets.length;
   const savingsTargets = savings.length;
 
+  // 🎨 Get icon for transaction category
   const getIconForTransaction = (transaction: Transaction) => {
     const isIncome = transaction.amount > 0;
 
@@ -58,6 +70,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return 'cash';
   };
 
+  // 🎨 Get icon color
   const getIconColor = (transaction: Transaction) => {
     const isIncome = transaction.amount > 0;
 
@@ -72,8 +85,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Balance Card */}
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#10B981']}
+          tintColor="#10B981"
+        />
+      }
+    >
+      {/* 💳 Balance Card */}
       <View style={styles.balanceCard}>
         <View style={styles.balanceHeader}>
           <Text style={styles.balanceLabel}>Saldo Total</Text>
@@ -105,7 +128,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </View>
       </View>
 
-      {/* Summary Cards */}
+      {/* 📊 Summary Cards */}
       <View style={styles.summaryContainer}>
         <View style={[styles.summaryCard, styles.transactionCard]}>
           <View>
@@ -147,14 +170,20 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </View>
       </View>
 
-      {/* Recent Transactions */}
+      {/* 📝 Recent Transactions */}
       <View style={styles.recentSection}>
-        <Text style={styles.sectionTitle}>Transaksi Terbaru</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Transaksi Terbaru</Text>
+          <Text style={styles.sectionSubtitle}>5 transaksi terakhir</Text>
+        </View>
 
         {recentTransactions.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="receipt-outline" size={64} color="#9CA3AF" />
             <Text style={styles.emptyText}>Belum ada transaksi</Text>
+            <Text style={styles.emptySubtext}>
+              Transaksi Anda akan muncul di sini
+            </Text>
           </View>
         ) : (
           recentTransactions.map((transaction, index) => {
@@ -196,6 +225,19 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             );
           })
         )}
+      </View>
+
+      {/* 💡 Quick Tips */}
+      <View style={styles.tipsCard}>
+        <View style={styles.tipsHeader}>
+          <Ionicons name="bulb" size={24} color="#F59E0B" />
+          <Text style={styles.tipsTitle}>Tips Keuangan</Text>
+        </View>
+        <Text style={styles.tipsText}>
+          • Sisihkan minimal 20% dari pendapatan untuk tabungan{'\n'}• Review
+          budget Anda setiap bulan{'\n'}• Hindari utang konsumtif yang tidak
+          perlu
+        </Text>
       </View>
     </ScrollView>
   );
@@ -317,11 +359,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+  sectionHeader: {
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
   },
   transactionItem: {
     flexDirection: 'row',
@@ -369,6 +418,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 12,
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  tipsCard: {
+    margin: 20,
+    marginTop: 0,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+  },
+  tipsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  tipsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#92400E',
+  },
+  tipsText: {
+    fontSize: 14,
+    color: '#78350F',
+    lineHeight: 22,
   },
   errorText: {
     textAlign: 'center',

@@ -5,6 +5,7 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { Transaction } from '../api/api';
 import { formatCurrency, formatDate } from '../utils/formatCurrency';
@@ -14,11 +15,15 @@ import AddTransactionScreen from './AddTransactionScreen';
 type TransactionsScreenProps = {
   transactions: Transaction[];
   onAddTransaction?: (transaction: Transaction) => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 };
 
 const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   transactions,
   onAddTransaction,
+  onRefresh,
+  refreshing = false,
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -107,6 +112,14 @@ const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
         keyExtractor={(item, index) => item.id?.toString() || index.toString()}
         renderItem={renderTransaction}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#10B981']}
+            tintColor="#10B981"
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="receipt-outline" size={64} color="#9CA3AF" />

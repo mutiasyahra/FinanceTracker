@@ -5,7 +5,9 @@ import {
   TouchableOpacity,
   Text,
   Modal,
-  Image,
+  Alert,
+  ToastAndroid,
+  Platform,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -21,6 +23,10 @@ import {
   fetchTransactions,
   fetchBudgets,
   fetchSavings,
+  addTransaction,
+  validateTransaction,
+  validateBudget,
+  validateSaving,
   User,
   Transaction,
   Budget,
@@ -36,6 +42,16 @@ export type RootTabParamList = {
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
+// 🎯 Toast notification utility
+const showToast = (message: string) => {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+  } else {
+    Alert.alert('Info', message);
+  }
+};
+
+// 📱 App Header Component
 const AppHeader = ({
   user,
   onProfilePress,
@@ -57,110 +73,237 @@ const AppHeader = ({
 };
 
 function App() {
+  // 🔄 State Management
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [savings, setSavings] = useState<Saving[]>([]);
   const [showProfile, setShowProfile] = useState(false);
 
+  // 📡 Load initial data
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  // 🔄 Load data from API
+  const loadData = async (showRefreshToast = false) => {
     try {
+      setError(null);
+      if (!showRefreshToast) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+
+      // Fetch all data in parallel for better performance
       const [userData, transData, budgetData, savingData] = await Promise.all([
         fetchUserData(),
         fetchTransactions(),
         fetchBudgets(),
         fetchSavings(),
       ]);
+
       setUser(userData);
       setTransactions(transData);
       setBudgets(budgetData);
       setSavings(savingData);
+
+      if (showRefreshToast) {
+        showToast('✅ Data berhasil diperbarui!');
+      }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('❌ Error loading data:', error);
+      setError('Gagal memuat data. Silakan coba lagi.');
+      showToast('❌ Gagal memuat data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleAddTransaction = (newTransaction: Transaction) => {
-    const transactionWithId = {
-      ...newTransaction,
-      id: Date.now(),
-    };
-    setTransactions([transactionWithId, ...transactions]);
+  // ➕ Add new transaction
+  const handleAddTransaction = async (newTransaction: Transaction) => {
+    try {
+      // Validate transaction
+      const validationError = validateTransaction(newTransaction);
+      if (validationError) {
+        Alert.alert('Validasi Gagal', validationError);
+        return;
+      }
 
-    // Update user balance
-    if (user) {
-      setUser({
-        ...user,
-        balance: user.balance + newTransaction.amount,
-      });
-    }
+      // Optimistic update - update UI immediately
+      const transactionWithId = {
+        ...newTransaction,
+        id: Date.now(),
+      };
 
-    // Update budget if it's an expense
-    if (newTransaction.amount < 0) {
-      const updatedBudgets = budgets.map(budget => {
-        if (budget.category === newTransaction.category) {
-          return {
-            ...budget,
-            spent: budget.spent + Math.abs(newTransaction.amount),
-          };
-        }
-        return budget;
-      });
-      setBudgets(updatedBudgets);
-    }
-  };
+      setTransactions([transactionWithId, ...transactions]);
 
-  const handleAddBudget = (newBudget: Budget) => {
-    setBudgets([...budgets, newBudget]);
-  };
-
-  const handleAddSaving = (newSaving: Saving) => {
-    setSavings([...savings, newSaving]);
-  };
-
-  const handleUpdateBudget = (updatedBudget: Budget) => {
-    const updatedBudgets = budgets.map(budget =>
-      budget.id === updatedBudget.id ? updatedBudget : budget,
-    );
-    setBudgets(updatedBudgets);
-  };
-
-  const handleUpdateSaving = (updatedSaving: Saving) => {
-    const updatedSavings = savings.map(saving =>
-      saving.id === updatedSaving.id ? updatedSaving : saving,
-    );
-    setSavings(updatedSavings);
-
-    // Update user balance
-    if (user) {
-      const oldSaving = savings.find(s => s.id === updatedSaving.id);
-      if (oldSaving) {
-        const difference = updatedSaving.amount - oldSaving.amount;
+      // Update user balance
+      if (user) {
         setUser({
           ...user,
-          balance: user.balance - difference,
+          balance: user.balance + newTransaction.amount,
         });
       }
+
+      // Update budget if it's an expense
+      if (newTransaction.amount < 0) {
+        const updatedBudgets = budgets.map(budget => {
+          if (budget.category === newTransaction.category) {
+            return {
+              ...budget,
+              spent: budget.spent + Math.abs(newTransaction.amount),
+            };
+          }
+          return budget;
+        });
+        setBudgets(updatedBudgets);
+      }
+
+      // Try to save to API
+      const result = await addTransaction(newTransaction);
+      if (result.success) {
+        showToast('✅ Transaksi berhasil ditambahkan!');
+      } else {
+        showToast('⚠️ Transaksi disimpan secara lokal');
+      }
+    } catch (error) {
+      console.error('❌ Error adding transaction:', error);
+      showToast('❌ Gagal menambahkan transaksi');
     }
   };
 
+  // ➕ Add new budget
+  const handleAddBudget = (newBudget: Budget) => {
+    try {
+      // Validate budget
+      const validationError = validateBudget(newBudget);
+      if (validationError) {
+        Alert.alert('Validasi Gagal', validationError);
+        return;
+      }
+
+      setBudgets([...budgets, newBudget]);
+      showToast('✅ Budget berhasil ditambahkan!');
+    } catch (error) {
+      console.error('❌ Error adding budget:', error);
+      showToast('❌ Gagal menambahkan budget');
+    }
+  };
+
+  // ➕ Add new saving
+  const handleAddSaving = (newSaving: Saving) => {
+    try {
+      // Validate saving
+      const validationError = validateSaving(newSaving);
+      if (validationError) {
+        Alert.alert('Validasi Gagal', validationError);
+        return;
+      }
+
+      setSavings([...savings, newSaving]);
+      showToast('✅ Target tabungan berhasil ditambahkan!');
+    } catch (error) {
+      console.error('❌ Error adding saving:', error);
+      showToast('❌ Gagal menambahkan target tabungan');
+    }
+  };
+
+  // ✏️ Update budget
+  const handleUpdateBudget = (updatedBudget: Budget) => {
+    try {
+      const updatedBudgets = budgets.map(budget =>
+        budget.id === updatedBudget.id ? updatedBudget : budget,
+      );
+      setBudgets(updatedBudgets);
+      showToast('✅ Budget berhasil diperbarui!');
+    } catch (error) {
+      console.error('❌ Error updating budget:', error);
+      showToast('❌ Gagal memperbarui budget');
+    }
+  };
+
+  // ✏️ Update saving
+  const handleUpdateSaving = (updatedSaving: Saving) => {
+    try {
+      const updatedSavings = savings.map(saving =>
+        saving.id === updatedSaving.id ? updatedSaving : saving,
+      );
+      setSavings(updatedSavings);
+
+      // Update user balance
+      if (user) {
+        const oldSaving = savings.find(s => s.id === updatedSaving.id);
+        if (oldSaving) {
+          const difference = updatedSaving.amount - oldSaving.amount;
+          setUser({
+            ...user,
+            balance: user.balance - difference,
+          });
+        }
+      }
+
+      showToast('✅ Tabungan berhasil diperbarui!');
+    } catch (error) {
+      console.error('❌ Error updating saving:', error);
+      showToast('❌ Gagal memperbarui tabungan');
+    }
+  };
+
+  // 🗑️ Delete budget
   const handleDeleteBudget = (budgetId: string | number) => {
-    setBudgets(budgets.filter(budget => budget.id !== budgetId));
+    try {
+      setBudgets(budgets.filter(budget => budget.id !== budgetId));
+      showToast('✅ Budget berhasil dihapus!');
+    } catch (error) {
+      console.error('❌ Error deleting budget:', error);
+      showToast('❌ Gagal menghapus budget');
+    }
   };
 
+  // 🗑️ Delete saving
   const handleDeleteSaving = (savingId: string | number) => {
-    setSavings(savings.filter(saving => saving.id !== savingId));
+    try {
+      setSavings(savings.filter(saving => saving.id !== savingId));
+      showToast('✅ Target tabungan berhasil dihapus!');
+    } catch (error) {
+      console.error('❌ Error deleting saving:', error);
+      showToast('❌ Gagal menghapus target tabungan');
+    }
   };
 
+  // 🔄 Retry loading data
+  const handleRetry = () => {
+    loadData();
+  };
+
+  // 🔄 Pull to refresh
+  const handleRefresh = () => {
+    loadData(true);
+  };
+
+  // 📱 Loading screen
   if (loading) {
-    return <LoadingScreen />;
+    return <LoadingScreen message="Memuat data keuangan Anda..." />;
+  }
+
+  // ❌ Error screen
+  if (error && !user) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle" size={64} color="#EF4444" />
+        <Text style={styles.errorTitle}>Terjadi Kesalahan</Text>
+        <Text style={styles.errorMessage}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <Ionicons name="refresh" size={20} color="#FFFFFF" />
+          <Text style={styles.retryButtonText}>Coba Lagi</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
@@ -199,6 +342,11 @@ function App() {
             borderTopWidth: 1,
             borderTopColor: '#E5E7EB',
             backgroundColor: '#FFFFFF',
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
           },
           tabBarLabelStyle: {
             fontSize: 12,
@@ -213,6 +361,8 @@ function App() {
               transactions={transactions}
               budgets={budgets}
               savings={savings}
+              onRefresh={handleRefresh}
+              refreshing={refreshing}
             />
           )}
         </Tab.Screen>
@@ -222,6 +372,8 @@ function App() {
             <TransactionsScreen
               transactions={transactions}
               onAddTransaction={handleAddTransaction}
+              onRefresh={handleRefresh}
+              refreshing={refreshing}
             />
           )}
         </Tab.Screen>
@@ -233,6 +385,8 @@ function App() {
               onAddBudget={handleAddBudget}
               onUpdateBudget={handleUpdateBudget}
               onDeleteBudget={handleDeleteBudget}
+              onRefresh={handleRefresh}
+              refreshing={refreshing}
             />
           )}
         </Tab.Screen>
@@ -244,12 +398,14 @@ function App() {
               onAddSaving={handleAddSaving}
               onUpdateSaving={handleUpdateSaving}
               onDeleteSaving={handleDeleteSaving}
+              onRefresh={handleRefresh}
+              refreshing={refreshing}
             />
           )}
         </Tab.Screen>
       </Tab.Navigator>
 
-      {/* Profile Modal */}
+      {/* 📱 Profile Modal */}
       <Modal
         visible={showProfile}
         animationType="slide"
@@ -329,6 +485,40 @@ const styles = StyleSheet.create({
   },
   modalCloseButton: {
     padding: 4,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10B981',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

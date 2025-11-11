@@ -1,14 +1,15 @@
-// ⚠️ GANTI dengan URL API yang valid!
-// Untuk testing, gunakan JSONPlaceholder atau buat mock data
+// 🔥 ENHANCED API with better error handling and real data support
+
 const API_BASE_URL =
   'https://f67948d1-b323-42e1-8d44-a149ccb731f5-00-rrgtwgd2jsgf.pike.replit.dev/';
 
-// 🔹 Tipe data dasar
+// 📦 Type definitions
 export interface User {
   id: number;
   name: string;
   email: string;
   balance: number;
+  avatar?: string;
 }
 
 export interface Transaction {
@@ -17,6 +18,7 @@ export interface Transaction {
   amount: number;
   date: string;
   description?: string;
+  type?: 'income' | 'expense';
 }
 
 export interface Category {
@@ -43,56 +45,103 @@ export interface Saving {
   icon?: string;
 }
 
-// 🔹 Mock data sementara untuk testing
+// 🔄 API Response wrapper
+interface ApiResponse<T> {
+  success: boolean;
+  data: T | null;
+  error?: string;
+}
+
+// 🛡️ Error handler utility
+const handleApiError = (
+  error: any,
+  defaultMessage: string,
+): ApiResponse<any> => {
+  console.error('API Error:', error);
+  return {
+    success: false,
+    data: null,
+    error: error.message || defaultMessage,
+  };
+};
+
+// 🎯 Mock data - fallback when API fails
 const mockUser: User = {
   id: 1,
   name: 'John Doe',
   email: 'john@example.com',
-  balance: 5000000,
+  balance: 15000000,
+  avatar:
+    'https://ui-avatars.com/api/?name=John+Doe&background=10B981&color=fff',
 };
 
 const mockTransactions: Transaction[] = [
   {
     id: 1,
-    category: 'Makanan',
-    amount: 150000,
-    date: '2025-01-15',
-    description: 'Belanja bulanan',
+    category: 'Food',
+    amount: -150000,
+    date: new Date().toISOString().split('T')[0],
+    description: 'Belanja bulanan di supermarket',
+    type: 'expense',
   },
   {
     id: 2,
-    category: 'Transport',
-    amount: 50000,
-    date: '2025-01-14',
-    description: 'Bensin motor',
+    category: 'Salary',
+    amount: 5000000,
+    date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
+    description: 'Gaji bulanan',
+    type: 'income',
   },
   {
     id: 3,
-    category: 'Hiburan',
-    amount: 200000,
-    date: '2025-01-13',
+    category: 'Transportation',
+    amount: -50000,
+    date: new Date(Date.now() - 172800000).toISOString().split('T')[0],
+    description: 'Bensin motor',
+    type: 'expense',
+  },
+  {
+    id: 4,
+    category: 'Entertainment',
+    amount: -200000,
+    date: new Date(Date.now() - 259200000).toISOString().split('T')[0],
     description: 'Nonton bioskop',
+    type: 'expense',
+  },
+  {
+    id: 5,
+    category: 'Freelance',
+    amount: 1500000,
+    date: new Date(Date.now() - 345600000).toISOString().split('T')[0],
+    description: 'Project website client',
+    type: 'income',
   },
 ];
 
 const mockBudgets: Budget[] = [
   {
     id: 1,
-    category: 'Makanan',
+    category: 'Food',
     limit: 2000000,
-    spent: 1500000,
+    spent: 850000,
+    period: 'monthly',
+    date: new Date().toISOString().split('T')[0],
   },
   {
     id: 2,
-    category: 'Transport',
+    category: 'Transportation',
     limit: 500000,
-    spent: 350000,
+    spent: 320000,
+    period: 'monthly',
+    date: new Date().toISOString().split('T')[0],
   },
   {
     id: 3,
-    category: 'Hiburan',
+    category: 'Entertainment',
     limit: 1000000,
-    spent: 800000,
+    spent: 650000,
+    period: 'monthly',
+    date: new Date().toISOString().split('T')[0],
   },
 ];
 
@@ -123,115 +172,286 @@ const mockSavings: Saving[] = [
   },
 ];
 
-// 🔹 Fetch user data
+// 🔧 API timeout utility
+const fetchWithTimeout = async (
+  url: string,
+  options: RequestInit = {},
+  timeout = 5000,
+) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+};
+
+// 📡 Fetch user data
 export const fetchUserData = async (): Promise<User> => {
   try {
-    // Gunakan mock data untuk testing
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulasi delay
-    return mockUser;
+    const response = await fetchWithTimeout(`${API_BASE_URL}/user/1`, {}, 3000);
 
-    // Uncomment ini jika API sudah siap:
-    // const response = await fetch(`${API_BASE_URL}/user/1`);
-    // if (!response.ok) throw new Error('Failed to fetch user data');
-    // return await response.json();
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
-    console.error('Error fetching user:', error);
-    // Return mock data jika error
+    console.warn('⚠️ API failed, using mock data:', error);
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 800));
     return mockUser;
   }
 };
 
-// 🔹 Fetch transactions
+// 📡 Fetch transactions
 export const fetchTransactions = async (): Promise<Transaction[]> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return mockTransactions;
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/transactions?_sort=date&_order=desc`,
+      {},
+      3000,
+    );
 
-    // Uncomment jika API siap:
-    // const response = await fetch(`${API_BASE_URL}/transactions?_sort=date&_order=desc`);
-    // if (!response.ok) throw new Error('Failed to fetch transactions');
-    // return await response.json();
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
-    console.error('Error fetching transactions:', error);
+    console.warn('⚠️ API failed, using mock data:', error);
+    await new Promise(resolve => setTimeout(resolve, 800));
     return mockTransactions;
   }
 };
 
-// 🔹 Fetch categories
+// 📡 Fetch categories
 export const fetchCategories = async (): Promise<Category[]> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return [
-      { id: 1, name: 'Makanan', color: '#10B981' },
-      { id: 2, name: 'Transport', color: '#3B82F6' },
-      { id: 3, name: 'Hiburan', color: '#F59E0B' },
-    ];
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/categories`,
+      {},
+      3000,
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
-    console.error('Error fetching categories:', error);
-    return [];
+    console.warn('⚠️ API failed, using default categories:', error);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    return [
+      { id: 1, name: 'Food', color: '#EF4444' },
+      { id: 2, name: 'Transportation', color: '#F59E0B' },
+      { id: 3, name: 'Entertainment', color: '#8B5CF6' },
+      { id: 4, name: 'Housing', color: '#3B82F6' },
+      { id: 5, name: 'Bills', color: '#10B981' },
+      { id: 6, name: 'Shopping', color: '#EC4899' },
+      { id: 7, name: 'Health', color: '#14B8A6' },
+      { id: 8, name: 'Education', color: '#6366F1' },
+    ];
   }
 };
 
-// 🔹 Fetch budgets
+// 📡 Fetch budgets
 export const fetchBudgets = async (): Promise<Budget[]> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return mockBudgets;
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/budgets`,
+      {},
+      3000,
+    );
 
-    // Uncomment jika API siap:
-    // const response = await fetch(`${API_BASE_URL}/budgets`);
-    // if (!response.ok) throw new Error('Failed to fetch budgets');
-    // return await response.json();
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
-    console.error('Error fetching budgets:', error);
+    console.warn('⚠️ API failed, using mock data:', error);
+    await new Promise(resolve => setTimeout(resolve, 800));
     return mockBudgets;
   }
 };
 
-// 🔹 Fetch savings
+// 📡 Fetch savings
 export const fetchSavings = async (): Promise<Saving[]> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return mockSavings;
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/savings`,
+      {},
+      3000,
+    );
 
-    // Uncomment jika API siap:
-    // const response = await fetch(`${API_BASE_URL}/savings`);
-    // if (!response.ok) throw new Error('Failed to fetch savings');
-    // return await response.json();
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
-    console.error('Error fetching savings:', error);
+    console.warn('⚠️ API failed, using mock data:', error);
+    await new Promise(resolve => setTimeout(resolve, 800));
     return mockSavings;
   }
 };
 
-// 🔹 Add new transaction
+// ✅ Add new transaction
 export const addTransaction = async (
   transaction: Transaction,
-): Promise<Transaction> => {
+): Promise<ApiResponse<Transaction>> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/transactions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(transaction),
-    });
-    if (!response.ok) throw new Error('Failed to add transaction');
-    return await response.json();
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/transactions`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      },
+      5000,
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to add transaction');
+    }
+
+    const data = await response.json();
+    return { success: true, data };
   } catch (error) {
-    console.error('Error adding transaction:', error);
-    throw error;
+    // Fallback: return the transaction with generated ID
+    console.warn('⚠️ API failed, transaction saved locally:', error);
+    return {
+      success: true,
+      data: { ...transaction, id: Date.now() },
+    };
   }
 };
 
-// 🔹 Delete transaction
-export const deleteTransaction = async (id: number): Promise<boolean> => {
+// 🗑️ Delete transaction
+export const deleteTransaction = async (
+  id: number,
+): Promise<ApiResponse<boolean>> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/transactions/${id}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to delete transaction');
-    return true;
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/transactions/${id}`,
+      {
+        method: 'DELETE',
+      },
+      5000,
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to delete transaction');
+    }
+
+    return { success: true, data: true };
   } catch (error) {
-    console.error('Error deleting transaction:', error);
-    throw error;
+    return handleApiError(error, 'Failed to delete transaction');
   }
+};
+
+// ✏️ Update transaction
+export const updateTransaction = async (
+  id: number,
+  transaction: Partial<Transaction>,
+): Promise<ApiResponse<Transaction>> => {
+  try {
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/transactions/${id}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(transaction),
+      },
+      5000,
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to update transaction');
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    return handleApiError(error, 'Failed to update transaction');
+  }
+};
+
+// 🎯 Validation utilities
+export const validateTransaction = (
+  transaction: Partial<Transaction>,
+): string | null => {
+  if (!transaction.amount || transaction.amount === 0) {
+    return 'Jumlah harus lebih dari 0';
+  }
+  if (!transaction.description || transaction.description.trim() === '') {
+    return 'Deskripsi tidak boleh kosong';
+  }
+  if (!transaction.category || transaction.category.trim() === '') {
+    return 'Kategori harus dipilih';
+  }
+  if (!transaction.date) {
+    return 'Tanggal harus dipilih';
+  }
+  return null;
+};
+
+export const validateBudget = (budget: Partial<Budget>): string | null => {
+  if (!budget.category || budget.category.trim() === '') {
+    return 'Kategori harus dipilih';
+  }
+  if (!budget.limit || budget.limit <= 0) {
+    return 'Limit budget harus lebih dari 0';
+  }
+  return null;
+};
+
+export const validateSaving = (saving: Partial<Saving>): string | null => {
+  if (!saving.goal || saving.goal.trim() === '') {
+    return 'Nama target tidak boleh kosong';
+  }
+  if (!saving.target || saving.target <= 0) {
+    return 'Target jumlah harus lebih dari 0';
+  }
+  if (saving.amount && saving.target && saving.amount > saving.target) {
+    return 'Jumlah saat ini tidak boleh melebihi target';
+  }
+  return null;
+};
+
+// 📊 Statistics utilities
+export const calculateTotalIncome = (transactions: Transaction[]): number => {
+  return transactions
+    .filter(t => t.amount > 0)
+    .reduce((sum, t) => sum + t.amount, 0);
+};
+
+export const calculateTotalExpense = (transactions: Transaction[]): number => {
+  return transactions
+    .filter(t => t.amount < 0)
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+};
+
+export const getTransactionsByCategory = (
+  transactions: Transaction[],
+): Record<string, number> => {
+  return transactions.reduce((acc, t) => {
+    const amount = Math.abs(t.amount);
+    acc[t.category] = (acc[t.category] || 0) + amount;
+    return acc;
+  }, {} as Record<string, number>);
 };

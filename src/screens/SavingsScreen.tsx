@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { formatCurrency } from '../utils/formatCurrency';
 import { Saving } from '../api/api';
@@ -19,6 +20,8 @@ type SavingsScreenProps = {
   onAddSaving?: (saving: Saving) => void;
   onUpdateSaving?: (saving: Saving) => void;
   onDeleteSaving?: (savingId: string | number) => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 };
 
 const SavingsScreen: React.FC<SavingsScreenProps> = ({
@@ -26,6 +29,8 @@ const SavingsScreen: React.FC<SavingsScreenProps> = ({
   onAddSaving,
   onUpdateSaving,
   onDeleteSaving,
+  onRefresh,
+  refreshing = false,
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -33,7 +38,6 @@ const SavingsScreen: React.FC<SavingsScreenProps> = ({
   const [updateAmount, setUpdateAmount] = useState('');
 
   const getIconForGoal = (icon: string): string => {
-    // Return the icon directly since it's already an Ionicons name
     return icon || 'flag';
   };
 
@@ -118,7 +122,7 @@ const SavingsScreen: React.FC<SavingsScreenProps> = ({
     );
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
     if (!dateString) return 'Belum ditentukan';
     const date = new Date(dateString);
     return date.toLocaleDateString('id-ID', {
@@ -141,7 +145,17 @@ const SavingsScreen: React.FC<SavingsScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#10B981']}
+            tintColor="#10B981"
+          />
+        }
+      >
         {savings.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="piggy-bank-outline" size={64} color="#9CA3AF" />
@@ -155,7 +169,7 @@ const SavingsScreen: React.FC<SavingsScreenProps> = ({
             const target = saving.target || saving.amount * 3.33;
             const progress = calculateProgress(saving.amount, target);
             const remaining = target - saving.amount;
-            const iconName = getIconForGoal(saving.icon);
+            const iconName = getIconForGoal(saving.icon || '');
             const iconColor = getColorForGoal(saving.goal);
 
             return (
@@ -273,7 +287,7 @@ const SavingsScreen: React.FC<SavingsScreenProps> = ({
                     ]}
                   >
                     <Ionicons
-                      name={getIconForGoal(selectedSaving.icon)}
+                      name={getIconForGoal(selectedSaving.icon || '')}
                       size={32}
                       color={getColorForGoal(selectedSaving.goal)}
                     />

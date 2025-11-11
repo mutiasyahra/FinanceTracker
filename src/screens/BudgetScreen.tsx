@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { formatCurrency } from '../utils/formatCurrency';
 import { Budget } from '../api/api';
@@ -19,6 +20,8 @@ type BudgetScreenProps = {
   onAddBudget?: (budget: Budget) => void;
   onUpdateBudget?: (budget: Budget) => void;
   onDeleteBudget?: (budgetId: string | number) => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 };
 
 const BudgetScreen: React.FC<BudgetScreenProps> = ({
@@ -26,6 +29,8 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({
   onAddBudget,
   onUpdateBudget,
   onDeleteBudget,
+  onRefresh,
+  refreshing = false,
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -140,7 +145,17 @@ const BudgetScreen: React.FC<BudgetScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#10B981']}
+            tintColor="#10B981"
+          />
+        }
+      >
         {budgets.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="wallet-outline" size={64} color="#9CA3AF" />
