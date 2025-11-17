@@ -9,16 +9,62 @@ import {
   ScrollView,
   Modal,
   Platform,
-  SafeAreaView,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
+
+const PRIMARY_COLOR = '#6A0DAD';
+const SECONDARY_COLOR = '#9370DB';
+const BACKGROUND_COLOR = '#F5F3FF';
+const INCOME_COLOR = '#10B981';
+const EXPENSE_COLOR = '#DC143C';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+export interface Saving {
+  id: string;
+  goal: string;
+  target: number;
+  amount: number;
+  targetDate: string;
+  icon: string;
+}
 
 interface AddSavingScreenProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (saving: any) => void;
+  onSave: (saving: Saving) => void;
 }
+
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount || 0);
+};
+
+const formatDate = (iso: string) => {
+  const d = new Date(iso);
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(d);
+};
+
+const goalIcons = [
+  { icon: 'shield', emoji: '🛡️', name: 'Dana Darurat', color: '#EF4444' },
+  { icon: 'home', emoji: '🏠', name: 'Rumah', color: '#F59E0B' },
+  { icon: 'airplane', emoji: '✈️', name: 'Liburan', color: '#3B82F6' },
+  { icon: 'car', emoji: '🚗', name: 'Kendaraan', color: '#8B5CF6' },
+  { icon: 'briefcase', emoji: '🎓', name: 'Pendidikan', color: '#059669' },
+  { icon: 'gift', emoji: '🎁', name: 'Lain-lain', color: '#EC4899' },
+];
 
 const AddSavingScreen: React.FC<AddSavingScreenProps> = ({
   visible,
@@ -29,292 +75,424 @@ const AddSavingScreen: React.FC<AddSavingScreenProps> = ({
   const [targetAmount, setTargetAmount] = useState('');
   const [currentAmount, setCurrentAmount] = useState('');
   const [targetDate, setTargetDate] = useState(new Date());
-  const [selectedIcon, setSelectedIcon] = useState('');
+  const [selectedIcon, setSelectedIcon] = useState('shield');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const goalIcons = [
-    { icon: 'shield-checkmark', name: 'Dana Darurat' },
-    { icon: 'home', name: 'Rumah' },
-    { icon: 'airplane', name: 'Liburan' },
-    { icon: 'car', name: 'Kendaraan' },
-    { icon: 'laptop', name: 'Gadget' },
-    { icon: 'school', name: 'Pendidikan' },
-    { icon: 'heart', name: 'Pernikahan' },
-    { icon: 'game-controller', name: 'Hobi' },
-  ];
+  // Animations (slide + fade)
+  const [slideAnim] = useState(new Animated.Value(SCREEN_HEIGHT));
+  const [fadeAnim] = useState(new Animated.Value(0));
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 65,
+          friction: 11,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) setTargetDate(selectedDate);
+  };
+
+  const handleAmountChange = (text: string, setter: (v: string) => void) => {
+    const raw = text.replace(/\D/g, '');
+    setter(raw);
+  };
 
   const handleSave = () => {
-    if (!goal || !targetAmount || !selectedIcon) {
-      Alert.alert('Mohon lengkapi semua field');
+    const target = parseFloat(targetAmount || '0');
+    const current = parseFloat(currentAmount || '0');
+
+    if (!goal.trim() || target <= 0 || current < 0 || current > target) {
+      Alert.alert(
+        'Validasi Gagal',
+        'Pastikan nama target, jumlah target valid (> 0), dan jumlah saat ini tidak melebihi target.',
+      );
       return;
     }
 
-    const newSaving = {
-      id: Date.now().toString(),
-      goal,
-      amount: parseFloat(currentAmount) || 0,
-      target: parseFloat(targetAmount),
-      targetDate: targetDate.toISOString().split('T')[0],
+    const newSaving: Saving = {
+      id: String(Date.now()),
+      goal: goal.trim(),
+      target,
+      amount: current,
+      targetDate: targetDate.toISOString(),
       icon: selectedIcon,
     };
 
     onSave(newSaving);
-    resetForm();
-  };
-
-  const resetForm = () => {
+    // reset
     setGoal('');
     setTargetAmount('');
     setCurrentAmount('');
     setTargetDate(new Date());
-    setSelectedIcon('');
+    setSelectedIcon('shield');
+    // close with slide down animation
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start(() => onClose());
   };
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setTargetDate(selectedDate);
-    }
-  };
+  const target = parseFloat(targetAmount || '0');
+  const current = parseFloat(currentAmount || '0');
+  const progress = target > 0 ? (current / target) * 100 : 0;
+  const remaining = Math.max(0, target - current);
+  const selectedIconData = goalIcons.find(i => i.icon === selectedIcon);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  };
-
-  const calculateProgress = () => {
-    const current = parseFloat(currentAmount) || 0;
-    const target = parseFloat(targetAmount) || 1;
-    return Math.min((current / target) * 100, 100);
-  };
-
-  const calculateRemaining = () => {
-    const current = parseFloat(currentAmount) || 0;
-    const target = parseFloat(targetAmount) || 0;
-    return Math.max(target - current, 0);
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start(() => onClose());
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          {/* Header */}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={handleClose}
+    >
+      {/* Backdrop */}
+      <Animated.View
+        style={[styles.backdrop, { opacity: fadeAnim }]}
+        onTouchEnd={handleClose}
+      />
+
+      <Animated.View
+        style={[
+          styles.modalContainer,
+          {
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <SafeAreaView style={styles.safeArea}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color="#111827" />
+            <View style={styles.headerContent}>
+              <View
+                style={[
+                  styles.headerIconContainer,
+                  { backgroundColor: PRIMARY_COLOR + '15' },
+                ]}
+              >
+                <Text style={styles.headerEmoji}>🎯</Text>
+              </View>
+              <Text style={styles.headerTitle}>Tambah Target Tabungan</Text>
+            </View>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <Ionicons name="close-circle" size={32} color="#6B7280" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Tambah Target Tabungan</Text>
-            <View style={styles.placeholder} />
           </View>
 
-          <ScrollView style={styles.content}>
-            {/* Info Card */}
-            <View style={styles.infoCard}>
-              <Ionicons
-                name="bulb"
-                size={24}
-                color="#065F46"
-                style={styles.infoIcon}
-              />
-              <Text style={styles.infoText}>
-                Tetapkan target tabungan untuk mencapai tujuan finansial Anda
-              </Text>
+          <ScrollView
+            style={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Preview */}
+            <View style={styles.previewCard}>
+              <View style={styles.previewHeader}>
+                <Text style={[styles.previewBadge, { color: PRIMARY_COLOR }]}>
+                  PRATINJAU TARGET
+                </Text>
+              </View>
+
+              <View style={styles.previewTop}>
+                <View
+                  style={[
+                    styles.previewIconContainer,
+                    {
+                      backgroundColor:
+                        (selectedIconData?.color || PRIMARY_COLOR) + '20',
+                    },
+                  ]}
+                >
+                  <Text style={styles.previewEmoji}>
+                    {selectedIconData?.emoji || '🎯'}
+                  </Text>
+                </View>
+                <View style={styles.previewInfo}>
+                  <Text style={styles.previewGoal}>
+                    {goal || 'Nama Target Tabungan'}
+                  </Text>
+                  <Text style={styles.previewTargetDate}>
+                    📅 Target: {formatDate(targetDate.toISOString())}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      width: `${Math.min(100, progress)}%`,
+                      backgroundColor: SECONDARY_COLOR,
+                    },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.amountRow}>
+                <View style={styles.amountBox}>
+                  <Text style={styles.amountBoxLabel}>Terkumpul</Text>
+                  <Text
+                    style={[styles.currentAmountText, { color: PRIMARY_COLOR }]}
+                  >
+                    {formatCurrency(current)}
+                  </Text>
+                </View>
+                <View style={styles.amountBox}>
+                  <Text style={styles.amountBoxLabel}>Sisa</Text>
+                  <Text style={styles.remainingAmountText}>
+                    {formatCurrency(remaining)}
+                  </Text>
+                </View>
+                <View style={styles.amountBox}>
+                  <Text style={styles.amountBoxLabel}>Target</Text>
+                  <Text style={styles.targetAmountText}>
+                    {formatCurrency(target)}
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            {/* Icon Selection */}
+            {/* Inputs */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Pilih Icon</Text>
-              <View style={styles.iconGrid}>
+              <Text style={styles.label}>
+                <Text style={styles.labelEmoji}>📝 </Text>Nama Target
+              </Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Contoh: Dana Darurat, DP Rumah"
+                placeholderTextColor="#9CA3AF"
+                value={goal}
+                onChangeText={setGoal}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                <Text style={styles.labelEmoji}>🎨 </Text>Pilih Ikon
+              </Text>
+              <View style={styles.iconContainer}>
                 {goalIcons.map(item => (
                   <TouchableOpacity
                     key={item.icon}
                     style={[
-                      styles.iconItem,
-                      selectedIcon === item.icon && styles.iconItemActive,
+                      styles.iconPill,
+                      {
+                        backgroundColor:
+                          item.icon === selectedIcon ? item.color : '#FFFFFF',
+                        borderColor:
+                          item.icon === selectedIcon ? item.color : '#E5E7EB',
+                        borderWidth: 2,
+                      },
                     ]}
                     onPress={() => setSelectedIcon(item.icon)}
+                    activeOpacity={0.75}
                   >
-                    <View
-                      style={[
-                        styles.iconContainer,
-                        selectedIcon === item.icon &&
-                          styles.iconContainerActive,
-                      ]}
-                    >
-                      <Ionicons
-                        name={item.icon}
-                        size={28}
-                        color={
-                          selectedIcon === item.icon ? '#10B981' : '#6B7280'
-                        }
-                      />
-                    </View>
+                    <Text style={styles.iconEmoji}>{item.emoji}</Text>
                     <Text
                       style={[
-                        styles.iconName,
-                        selectedIcon === item.icon && styles.iconNameActive,
+                        styles.iconText,
+                        {
+                          color:
+                            item.icon === selectedIcon ? '#FFFFFF' : '#6B7280',
+                        },
                       ]}
                     >
                       {item.name}
                     </Text>
+                    {item.icon === selectedIcon && (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color="#FFFFFF"
+                      />
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
-            {/* Goal Name Input */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Nama Target</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Contoh: Laptop Baru"
-                value={goal}
-                onChangeText={setGoal}
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-
-            {/* Target Amount Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Target Jumlah</Text>
-              <View style={styles.amountInput}>
-                <Text style={styles.currency}>Rp</Text>
+              <Text style={styles.label}>
+                <Text style={styles.labelEmoji}>🎯 </Text>Jumlah Target
+              </Text>
+              <View
+                style={[
+                  styles.amountInputContainer,
+                  { borderColor: PRIMARY_COLOR + '40' },
+                ]}
+              >
+                <Text style={styles.currencyLabel}>Rp</Text>
                 <TextInput
-                  style={styles.amountTextInput}
+                  style={styles.amountInput}
                   placeholder="0"
+                  placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                   value={targetAmount}
-                  onChangeText={setTargetAmount}
-                  placeholderTextColor="#9CA3AF"
+                  onChangeText={t => handleAmountChange(t, setTargetAmount)}
                 />
+              </View>
+              <View style={styles.helperTextContainer}>
+                <Ionicons
+                  name="information-circle"
+                  size={16}
+                  color={SECONDARY_COLOR}
+                />
+                <Text style={styles.helperText}>{formatCurrency(target)}</Text>
               </View>
             </View>
 
-            {/* Current Amount Input */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Jumlah Saat Ini (Opsional)</Text>
-              <View style={styles.amountInput}>
-                <Text style={styles.currency}>Rp</Text>
+              <Text style={styles.label}>
+                <Text style={styles.labelEmoji}>💰 </Text>Jumlah Saat Ini
+                (Opsional)
+              </Text>
+              <View
+                style={[
+                  styles.amountInputContainer,
+                  { borderColor: PRIMARY_COLOR + '40' },
+                ]}
+              >
+                <Text style={styles.currencyLabel}>Rp</Text>
                 <TextInput
-                  style={styles.amountTextInput}
+                  style={styles.amountInput}
                   placeholder="0"
+                  placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
                   value={currentAmount}
-                  onChangeText={setCurrentAmount}
-                  placeholderTextColor="#9CA3AF"
+                  onChangeText={t => handleAmountChange(t, setCurrentAmount)}
                 />
               </View>
-              <Text style={styles.hint}>
-                Masukkan jumlah yang sudah Anda tabung saat ini
-              </Text>
+              <View style={styles.helperTextContainer}>
+                <Ionicons
+                  name="information-circle"
+                  size={16}
+                  color={SECONDARY_COLOR}
+                />
+                <Text style={styles.helperText}>{formatCurrency(current)}</Text>
+              </View>
             </View>
 
-            {/* Target Date Picker */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Target Tanggal</Text>
+              <Text style={styles.label}>
+                <Text style={styles.labelEmoji}>📅 </Text>Tanggal Target Selesai
+              </Text>
               <TouchableOpacity
                 style={styles.dateButton}
                 onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.8}
               >
-                <Ionicons name="calendar-outline" size={20} color="#6B7280" />
-                <Text style={styles.dateText}>{formatDate(targetDate)}</Text>
-                <Ionicons name="chevron-down" size={20} color="#6B7280" />
+                <Ionicons name="calendar" size={24} color={SECONDARY_COLOR} />
+                <Text style={styles.dateText}>
+                  {formatDate(targetDate.toISOString())}
+                </Text>
+                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
               </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  testID="datePicker"
+                  value={targetDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                />
+              )}
             </View>
 
-            {showDatePicker && (
-              <DateTimePicker
-                value={targetDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onDateChange}
-                minimumDate={new Date()}
-              />
-            )}
+            <View style={styles.infoBox}>
+              <Text style={styles.infoEmoji}>💡</Text>
+              <Text style={styles.infoText}>
+                Tetapkan target yang realistis dan konsisten menabung setiap
+                bulan untuk mencapai tujuan Anda!
+              </Text>
+            </View>
 
-            {/* Preview Card */}
-            {goal && targetAmount && selectedIcon && (
-              <View style={styles.previewCard}>
-                <Text style={styles.previewTitle}>Preview Target</Text>
-                <View style={styles.previewContent}>
-                  <View style={styles.previewIconCircle}>
-                    <Ionicons name={selectedIcon} size={48} color="#10B981" />
-                  </View>
-                  <Text style={styles.previewGoal}>{goal}</Text>
-                  <Text style={styles.previewDate}>
-                    Target: {formatDate(targetDate)}
-                  </Text>
-
-                  <View style={styles.progressSection}>
-                    <View style={styles.progressHeader}>
-                      <Text style={styles.progressLabel}>Progress</Text>
-                      <Text style={styles.progressPercentage}>
-                        {calculateProgress().toFixed(0)}%
-                      </Text>
-                    </View>
-                    <View style={styles.progressBarContainer}>
-                      <View
-                        style={[
-                          styles.progressBar,
-                          { width: `${calculateProgress()}%` },
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={styles.amountRow}>
-                    <View style={styles.amountBox}>
-                      <Text style={styles.amountBoxLabel}>Terkumpul</Text>
-                      <Text style={styles.currentAmountText}>
-                        Rp{' '}
-                        {(parseFloat(currentAmount) || 0).toLocaleString(
-                          'id-ID',
-                        )}
-                      </Text>
-                    </View>
-                    <View style={styles.amountBox}>
-                      <Text style={styles.amountBoxLabel}>Target</Text>
-                      <Text style={styles.targetAmountText}>
-                        Rp {parseFloat(targetAmount).toLocaleString('id-ID')}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.remainingBox}>
-                    <Text style={styles.remainingLabel}>Sisa</Text>
-                    <Text style={styles.remainingAmount}>
-                      Rp {calculateRemaining().toLocaleString('id-ID')}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            )}
+            <View style={{ height: 100 }} />
           </ScrollView>
 
-          {/* Save Button */}
           <View style={styles.footer}>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSave}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
               <Text style={styles.saveButtonText}>Simpan Target</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </Animated.View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
+  modalContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '95%',
+    backgroundColor: BACKGROUND_COLOR,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    overflow: 'hidden',
   },
+  safeArea: { flex: 1, backgroundColor: BACKGROUND_COLOR },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -324,274 +502,164 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    elevation: 2,
   },
-  closeButton: {
-    padding: 4,
+  headerContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  headerTitle: {
+  headerEmoji: { fontSize: 24 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
+  closeButton: { padding: 4 },
+  content: { flex: 1, padding: 20 },
+  previewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    elevation: 6,
+  },
+  previewHeader: { marginBottom: 8 },
+  previewBadge: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  previewTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 12,
+  },
+  previewIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewEmoji: { fontSize: 28 },
+  previewInfo: { flex: 1 },
+  previewGoal: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
+    marginBottom: 4,
   },
-  placeholder: {
-    width: 36,
+  previewTargetDate: { fontSize: 13, color: '#6B7280' },
+  progressBarContainer: {
+    height: 12,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 12,
   },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderLeftWidth: 4,
-    borderLeftColor: '#10B981',
-  },
-  infoIcon: {
-    marginRight: 12,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#065F46',
-    lineHeight: 20,
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
+  progressBar: { height: '100%', borderRadius: 6 },
+  amountRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  amountBox: { alignItems: 'center', width: '30%' },
+  amountBoxLabel: { fontSize: 12, color: '#6B7280', marginBottom: 6 },
+  currentAmountText: { fontSize: 16, fontWeight: 'bold' },
+  remainingAmountText: { fontSize: 16, fontWeight: 'bold', color: '#F59E0B' },
+  targetAmountText: { fontSize: 16, fontWeight: 'bold' },
+  inputGroup: { marginBottom: 20 },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
   },
-  iconGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  iconItem: {
-    width: '22%',
+  labelEmoji: { fontSize: 18 },
+  textInput: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    fontSize: 15,
+    color: '#111827',
     borderWidth: 2,
     borderColor: '#E5E7EB',
-    padding: 8,
+  },
+  iconContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  iconPill: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  iconItemActive: {
-    borderColor: '#10B981',
-    backgroundColor: '#D1FAE5',
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  iconContainerActive: {
-    backgroundColor: '#D1FAE5',
-  },
-  iconName: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  iconNameActive: {
-    color: '#10B981',
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#111827',
+    borderRadius: 20,
+    minWidth: '47%',
+    gap: 8,
   },
-  amountInput: {
+  iconEmoji: { fontSize: 22 },
+  iconText: { flex: 1, fontSize: 13, fontWeight: '600' },
+  amountInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+    paddingHorizontal: 20,
   },
-  currency: {
-    fontSize: 20,
+  currencyLabel: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
-    marginRight: 8,
+    color: PRIMARY_COLOR,
+    marginRight: 12,
   },
-  amountTextInput: {
+  amountInput: {
     flex: 1,
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
-    paddingVertical: 16,
+    color: PRIMARY_COLOR,
+    paddingVertical: 12,
   },
-  hint: {
-    fontSize: 12,
-    color: '#6B7280',
+  helperTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 8,
-    fontStyle: 'italic',
+    gap: 6,
   },
+  helperText: { fontSize: 14, color: '#6B7280', fontWeight: '600' },
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
-  },
-  dateText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#111827',
-  },
-  previewCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
+    gap: 12,
     borderWidth: 2,
-    borderColor: '#10B981',
+    borderColor: '#E5E7EB',
   },
-  previewTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#10B981',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  previewContent: {
-    alignItems: 'center',
-  },
-  previewIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#D1FAE5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  previewGoal: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  previewDate: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 20,
-  },
-  progressSection: {
-    width: '100%',
-    marginBottom: 16,
-  },
-  progressHeader: {
+  dateText: { flex: 1, fontSize: 16, fontWeight: '600', color: '#111827' },
+  infoBox: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    backgroundColor: SECONDARY_COLOR + '10',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: SECONDARY_COLOR,
   },
-  progressLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  progressPercentage: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#10B981',
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#10B981',
-    borderRadius: 4,
-  },
-  amountRow: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  amountBox: {
-    alignItems: 'center',
-  },
-  amountBoxLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  currentAmountText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#10B981',
-  },
-  targetAmountText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  remainingBox: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  remainingLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  remainingAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
+  infoEmoji: { fontSize: 20 },
+  infoText: { flex: 1, fontSize: 14, color: '#374151', lineHeight: 20 },
   footer: {
     padding: 20,
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 28,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    elevation: 8,
   },
   saveButton: {
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: PRIMARY_COLOR,
+    padding: 16,
+    borderRadius: 16,
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
   },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
+  saveButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
 });
 
 export default AddSavingScreen;

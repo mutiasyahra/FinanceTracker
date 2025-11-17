@@ -9,16 +9,62 @@ import {
   ScrollView,
   Modal,
   Platform,
-  SafeAreaView,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
+
+const PRIMARY_COLOR = '#6A0DAD';
+const SECONDARY_COLOR = '#9370DB';
+const BACKGROUND_COLOR = '#F5F3FF';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+export interface Budget {
+  id: number | string;
+  category: string;
+  limit: number;
+  spent: number;
+  period: 'monthly' | 'weekly';
+  date: string;
+}
 
 interface AddBudgetScreenProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (budget: any) => void;
+  onSave: (budget: Budget) => void;
 }
+
+const formatCurrency = (amount: number | string): string => {
+  const num =
+    typeof amount === 'string' ? parseFloat(amount) || 0 : amount || 0;
+  return new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(num);
+};
+
+const formatDate = (iso: string) => {
+  const d = new Date(iso);
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(d);
+};
+
+const categories = [
+  { name: 'Food', emoji: '🍕', color: '#EF4444' },
+  { name: 'Transportation', emoji: '🚗', color: '#F59E0B' },
+  { name: 'Entertainment', emoji: '🎬', color: '#8B5CF6' },
+  { name: 'Shopping', emoji: '🛒', color: '#EC4899' },
+  { name: 'Utilities', emoji: '💡', color: '#3B82F6' },
+  { name: 'Health', emoji: '⚕️', color: '#059669' },
+  { name: 'Education', emoji: '📚', color: '#6366F1' },
+  { name: 'Others', emoji: '📌', color: '#6B7280' },
+];
 
 const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
   visible,
@@ -31,282 +77,329 @@ const AddBudgetScreen: React.FC<AddBudgetScreenProps> = ({
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const categories = [
-    { name: 'Food', icon: 'restaurant', color: '#EF4444' },
-    { name: 'Transportation', icon: 'car', color: '#F59E0B' },
-    { name: 'Entertainment', icon: 'film', color: '#8B5CF6' },
-    { name: 'Housing', icon: 'home', color: '#3B82F6' },
-    { name: 'Bills', icon: 'phone-portrait', color: '#10B981' },
-    { name: 'Shopping', icon: 'bag-handle', color: '#EC4899' },
-    { name: 'Health', icon: 'medkit', color: '#14B8A6' },
-    { name: 'Education', icon: 'book', color: '#6366F1' },
-  ];
+  // animations
+  const [slideAnim] = useState(new Animated.Value(SCREEN_HEIGHT));
+  const [fadeAnim] = useState(new Animated.Value(0));
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 65,
+          friction: 11,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) setDate(selectedDate);
+  };
+
+  const handleLimitChange = (text: string) => {
+    const raw = text.replace(/\D/g, '');
+    setLimit(raw);
+  };
 
   const handleSave = () => {
-    if (!category || !limit) {
-      Alert.alert('Mohon lengkapi semua field');
+    const limitNum = parseFloat(limit || '0');
+    if (!category || limitNum <= 0 || isNaN(limitNum)) {
+      Alert.alert(
+        'Validasi Gagal',
+        'Pilih kategori dan masukkan limit yang valid (> 0).',
+      );
       return;
     }
 
-    const newBudget = {
-      id: Date.now().toString(),
+    const newBudget: Budget = {
+      id: Date.now(),
       category,
-      limit: parseFloat(limit),
+      limit: limitNum,
       spent: 0,
       period,
-      date: date.toISOString().split('T')[0],
+      date: date.toISOString(),
     };
 
     onSave(newBudget);
-    resetForm();
-  };
-
-  const resetForm = () => {
     setCategory('');
     setLimit('');
     setPeriod('monthly');
     setDate(new Date());
+
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start(() => onClose());
   };
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setDate(selectedDate);
-    }
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start(() => onClose());
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  };
+  const selectedCategory = categories.find(c => c.name === category);
+  const formattedLimit = limit ? formatCurrency(limit) : '0';
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          {/* Header */}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={handleClose}
+    >
+      <Animated.View
+        style={[styles.backdrop, { opacity: fadeAnim }]}
+        onTouchEnd={handleClose}
+      />
+
+      <Animated.View
+        style={[
+          styles.modalContainer,
+          { transform: [{ translateY: slideAnim }] },
+        ]}
+      >
+        <SafeAreaView style={styles.safeArea}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color="#111827" />
+            <View style={styles.headerContent}>
+              <View
+                style={[
+                  styles.headerIconContainer,
+                  { backgroundColor: PRIMARY_COLOR + '15' },
+                ]}
+              >
+                <Text style={styles.headerEmoji}>💰</Text>
+              </View>
+              <Text style={styles.headerTitle}>Tambah Budget Baru</Text>
+            </View>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <Ionicons name="close-circle" size={32} color="#6B7280" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Tambah Budget</Text>
-            <View style={styles.placeholder} />
           </View>
 
-          <ScrollView style={styles.content}>
-            {/* Info Card */}
-            <View style={styles.infoCard}>
-              <Ionicons
-                name="bulb"
-                size={24}
-                color="#1E40AF"
-                style={styles.infoIcon}
-              />
-              <Text style={styles.infoText}>
-                Atur budget untuk mengontrol pengeluaran Anda per kategori
-              </Text>
-            </View>
+          <ScrollView
+            style={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.previewCard}>
+              <View style={styles.previewHeader}>
+                <Text style={[styles.previewBadge, { color: PRIMARY_COLOR }]}>
+                  PRATINJAU BUDGET
+                </Text>
+              </View>
 
-            {/* Period Selection */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Periode Budget</Text>
-              <View style={styles.periodToggle}>
-                <TouchableOpacity
+              <View style={styles.previewTop}>
+                <View
                   style={[
-                    styles.periodButton,
-                    period === 'monthly' && styles.periodButtonActive,
+                    styles.previewIconContainer,
+                    {
+                      backgroundColor: selectedCategory
+                        ? selectedCategory.color + '15'
+                        : '#F3F4F6',
+                    },
                   ]}
-                  onPress={() => setPeriod('monthly')}
                 >
-                  <Ionicons
-                    name="calendar"
-                    size={20}
-                    color={period === 'monthly' ? '#FFFFFF' : '#6B7280'}
-                  />
-                  <Text
-                    style={[
-                      styles.periodButtonText,
-                      period === 'monthly' && styles.periodButtonTextActive,
-                    ]}
-                  >
-                    Bulanan
+                  <Text style={styles.previewEmoji}>
+                    {selectedCategory?.emoji || '📦'}
                   </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.periodButton,
-                    period === 'weekly' && styles.periodButtonActive,
-                  ]}
-                  onPress={() => setPeriod('weekly')}
-                >
-                  <Ionicons
-                    name="calendar-outline"
-                    size={20}
-                    color={period === 'weekly' ? '#FFFFFF' : '#6B7280'}
-                  />
-                  <Text
-                    style={[
-                      styles.periodButtonText,
-                      period === 'weekly' && styles.periodButtonTextActive,
-                    ]}
-                  >
-                    Mingguan
+                </View>
+                <View style={styles.previewInfo}>
+                  <Text style={styles.previewCategory}>
+                    {category || 'Pilih Kategori'}
                   </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Category Selection */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Pilih Kategori</Text>
-              <View style={styles.categoryGrid}>
-                {categories.map(cat => (
-                  <TouchableOpacity
-                    key={cat.name}
-                    style={[
-                      styles.categoryItem,
-                      category === cat.name && styles.categoryItemActive,
-                      category === cat.name && {
-                        borderColor: cat.color,
-                        backgroundColor: cat.color + '20',
-                      },
-                    ]}
-                    onPress={() => setCategory(cat.name)}
-                  >
-                    <View
-                      style={[
-                        styles.categoryIconContainer,
-                        category === cat.name && {
-                          backgroundColor: cat.color + '30',
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name={cat.icon}
-                        size={24}
-                        color={category === cat.name ? cat.color : '#6B7280'}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.categoryName,
-                        category === cat.name && { color: cat.color },
-                      ]}
-                    >
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Budget Limit Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Limit Budget</Text>
-              <View style={styles.amountInput}>
-                <Text style={styles.currency}>Rp</Text>
-                <TextInput
-                  style={styles.amountTextInput}
-                  placeholder="0"
-                  keyboardType="numeric"
-                  value={limit}
-                  onChangeText={setLimit}
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-              <Text style={styles.hint}>
-                Budget maksimal untuk kategori {category || 'yang dipilih'} per{' '}
-                {period === 'monthly' ? 'bulan' : 'minggu'}
-              </Text>
-            </View>
-
-            {/* Date Picker */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Tanggal Mulai</Text>
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Ionicons name="calendar-outline" size={20} color="#6B7280" />
-                <Text style={styles.dateText}>{formatDate(date)}</Text>
-                <Ionicons name="chevron-down" size={20} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={date}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onDateChange}
-              />
-            )}
-
-            {/* Preview Card */}
-            {category && limit && (
-              <View style={styles.previewCard}>
-                <Text style={styles.previewTitle}>Preview Budget</Text>
-                <View style={styles.previewContent}>
-                  <View style={styles.previewHeader}>
-                    <View
-                      style={[
-                        styles.previewIconContainer,
-                        {
-                          backgroundColor:
-                            categories.find(c => c.name === category)?.color +
-                            '20',
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name={
-                          categories.find(c => c.name === category)?.icon ||
-                          'wallet'
-                        }
-                        size={32}
-                        color={categories.find(c => c.name === category)?.color}
-                      />
-                    </View>
-                    <View>
-                      <Text style={styles.previewCategory}>{category}</Text>
-                      <Text style={styles.previewPeriod}>
-                        Budget {period === 'monthly' ? 'Bulanan' : 'Mingguan'}
-                      </Text>
-                      <Text style={styles.previewDate}>{formatDate(date)}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.previewAmount}>
-                    Rp {parseFloat(limit).toLocaleString('id-ID')}
+                  <Text style={styles.previewPeriod}>
+                    {period === 'monthly' ? '📆 Bulanan' : '🗓️ Mingguan'}
                   </Text>
                 </View>
               </View>
-            )}
+
+              <View style={styles.previewBottom}>
+                <Text style={styles.previewLimitLabel}>Target Limit</Text>
+                <Text style={styles.previewLimitAmount}>
+                  Rp {formattedLimit}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                <Text style={styles.labelEmoji}>🏷️ </Text>Pilih Kategori Budget
+              </Text>
+              <View style={styles.categoryContainer}>
+                {categories.map(item => {
+                  const isSelected = item.name === category;
+                  return (
+                    <TouchableOpacity
+                      key={item.name}
+                      style={[
+                        styles.categoryPill,
+                        {
+                          backgroundColor: isSelected ? item.color : '#FFFFFF',
+                          borderColor: isSelected ? item.color : '#E5E7EB',
+                        },
+                      ]}
+                      onPress={() => setCategory(item.name)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.emojiIcon}>{item.emoji}</Text>
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          { color: isSelected ? '#FFFFFF' : '#6B7280' },
+                        ]}
+                      >
+                        {item.name}
+                      </Text>
+                      {isSelected && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color="#FFFFFF"
+                        />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                <Text style={styles.labelEmoji}>💵 </Text>Atur Limit Budget
+              </Text>
+              <View
+                style={[
+                  styles.amountInputContainer,
+                  { borderColor: PRIMARY_COLOR + '40' },
+                ]}
+              >
+                <Text style={styles.currencyLabel}>Rp</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  placeholder="0"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  value={limit ? formatCurrency(limit) : ''}
+                  onChangeText={handleLimitChange}
+                />
+              </View>
+              <View style={styles.helperTextContainer}>
+                <Ionicons
+                  name="information-circle"
+                  size={16}
+                  color={SECONDARY_COLOR}
+                />
+                <Text style={styles.helperText}>
+                  Jumlah: Rp {formattedLimit}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                <Text style={styles.labelEmoji}>📅 </Text>Mulai Dari
+              </Text>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar" size={24} color={SECONDARY_COLOR} />
+                <Text style={styles.dateText}>
+                  {formatDate(date.toISOString())}
+                </Text>
+                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  testID="datePicker"
+                  value={date}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                />
+              )}
+            </View>
+
+            <View style={{ height: 100 }} />
           </ScrollView>
 
-          {/* Save Button */}
           <View style={styles.footer}>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>Simpan Budget</Text>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSave}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
+              <Text style={styles.saveButtonText}>Buat Budget</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </Animated.View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
+  modalContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '95%',
+    backgroundColor: BACKGROUND_COLOR,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    overflow: 'hidden',
   },
+  safeArea: { flex: 1, backgroundColor: BACKGROUND_COLOR },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -316,223 +409,139 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    elevation: 2,
   },
-  closeButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  placeholder: {
-    width: 36,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: '#EFF6FF',
+  headerContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerIconContainer: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
-  },
-  infoIcon: {
-    marginRight: 12,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1E40AF',
-    lineHeight: 20,
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  periodToggle: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  periodButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  periodButtonActive: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
-  },
-  periodButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  periodButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  categoryItem: {
-    width: '22%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    padding: 8,
-    alignItems: 'center',
-  },
-  categoryItemActive: {
-    borderWidth: 2,
-  },
-  categoryIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  categoryName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  amountInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
-  },
-  currency: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginRight: 8,
-  },
-  amountTextInput: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    paddingVertical: 16,
-  },
-  hint: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 8,
-    fontStyle: 'italic',
-  },
-  dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
-  },
-  dateText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#111827',
-  },
+  headerEmoji: { fontSize: 24 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
+  closeButton: { padding: 4 },
+  content: { flex: 1, padding: 20 },
   previewCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
-    borderWidth: 2,
-    borderColor: '#10B981',
+    marginBottom: 16,
+    elevation: 6,
   },
-  previewTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#10B981',
-    marginBottom: 12,
-  },
-  previewContent: {
-    gap: 12,
-  },
-  previewHeader: {
+  previewHeader: { marginBottom: 8 },
+  previewBadge: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  previewTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
+    marginBottom: 12,
   },
   previewIconContainer: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  previewEmoji: { fontSize: 28 },
+  previewInfo: { flex: 1 },
   previewCategory: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
+    marginBottom: 4,
   },
-  previewPeriod: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
+  previewPeriod: { fontSize: 13, color: '#6B7280' },
+  previewBottom: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
-  previewDate: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  previewAmount: {
+  previewLimitLabel: { fontSize: 13, color: '#6B7280', marginBottom: 6 },
+  previewLimitAmount: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#10B981',
+    color: PRIMARY_COLOR,
   },
+  inputGroup: { marginBottom: 20 },
+  label: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  labelEmoji: { fontSize: 18 },
+  categoryContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    gap: 8,
+    borderWidth: 2,
+  },
+  emojiIcon: { fontSize: 20 },
+  categoryText: { fontSize: 14, fontWeight: '600' },
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 2,
+    paddingHorizontal: 20,
+  },
+  currencyLabel: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: PRIMARY_COLOR,
+    marginRight: 12,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: PRIMARY_COLOR,
+    paddingVertical: 12,
+  },
+  helperTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
+  helperText: { fontSize: 14, color: '#6B7280', fontWeight: '600' },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 18,
+    gap: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  dateText: { flex: 1, fontSize: 16, fontWeight: '600', color: '#111827' },
   footer: {
     padding: 20,
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 28,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    elevation: 8,
   },
   saveButton: {
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: PRIMARY_COLOR,
+    padding: 16,
+    borderRadius: 16,
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
   },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
+  saveButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
 });
 
 export default AddBudgetScreen;

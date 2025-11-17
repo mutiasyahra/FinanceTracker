@@ -1,11 +1,12 @@
-// 🔥 ENHANCED API with better error handling and real data support
+// src/api/api.ts
 
-const API_BASE_URL =
-  'https://f67948d1-b323-42e1-8d44-a149ccb731f5-00-rrgtwgd2jsgf.pike.replit.dev/';
+// 🚨 PENTING: Import klien Supabase dari file terpisah
+import { supabase } from './supabaseClient';
 
 // 📦 Type definitions
+// Catatan: Tipe ID di Supabase adalah string (UUID), kita sesuaikan di sini.
 export interface User {
-  id: number;
+  id: string; // Diubah dari number ke string (UUID)
   name: string;
   email: string;
   balance: number;
@@ -13,12 +14,13 @@ export interface User {
 }
 
 export interface Transaction {
-  id?: number;
+  id?: string; // Diubah dari number/string ke string (UUID)
   category: string;
   amount: number;
   date: string;
   description?: string;
   type?: 'income' | 'expense';
+  user_id?: string; // Tambahkan untuk konsistensi data
 }
 
 export interface Category {
@@ -28,36 +30,37 @@ export interface Category {
 }
 
 export interface Budget {
-  id: number | string;
+  id: string; // Diubah dari number/string ke string (UUID)
   category: string;
   limit: number;
   spent: number;
   period?: 'monthly' | 'weekly';
   date?: string;
+  user_id?: string;
 }
 
 export interface Saving {
-  id: number | string;
+  id: string; // Diubah dari number/string ke string (UUID)
   goal: string;
   amount: number;
   target?: number;
   targetDate?: string;
   icon?: string;
+  user_id?: string;
 }
 
-// 🔄 API Response wrapper
+// 📄 API Response wrapper
 interface ApiResponse<T> {
   success: boolean;
   data: T | null;
   error?: string;
 }
 
-// 🛡️ Error handler utility
-const handleApiError = (
+// Helper untuk menangani error dari Supabase
+const handleSupabaseError = (
   error: any,
   defaultMessage: string,
 ): ApiResponse<any> => {
-  console.error('API Error:', error);
   return {
     success: false,
     data: null,
@@ -65,352 +68,383 @@ const handleApiError = (
   };
 };
 
-// 🎯 Mock data - fallback when API fails
-const mockUser: User = {
-  id: 1,
-  name: 'John Doe',
-  email: 'john@example.com',
-  balance: 15000000,
-  avatar:
-    'https://ui-avatars.com/api/?name=John+Doe&background=10B981&color=fff',
-};
+// 🌐 API Calls (Implementasi menggunakan Supabase)
 
-const mockTransactions: Transaction[] = [
-  {
-    id: 1,
-    category: 'Food',
-    amount: -150000,
-    date: new Date().toISOString().split('T')[0],
-    description: 'Belanja bulanan di supermarket',
-    type: 'expense',
-  },
-  {
-    id: 2,
-    category: 'Salary',
-    amount: 5000000,
-    date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
-    description: 'Gaji bulanan',
-    type: 'income',
-  },
-  {
-    id: 3,
-    category: 'Transportation',
-    amount: -50000,
-    date: new Date(Date.now() - 172800000).toISOString().split('T')[0],
-    description: 'Bensin motor',
-    type: 'expense',
-  },
-  {
-    id: 4,
-    category: 'Entertainment',
-    amount: -200000,
-    date: new Date(Date.now() - 259200000).toISOString().split('T')[0],
-    description: 'Nonton bioskop',
-    type: 'expense',
-  },
-  {
-    id: 5,
-    category: 'Freelance',
-    amount: 1500000,
-    date: new Date(Date.now() - 345600000).toISOString().split('T')[0],
-    description: 'Project website client',
-    type: 'income',
-  },
-];
-
-const mockBudgets: Budget[] = [
-  {
-    id: 1,
-    category: 'Food',
-    limit: 2000000,
-    spent: 850000,
-    period: 'monthly',
-    date: new Date().toISOString().split('T')[0],
-  },
-  {
-    id: 2,
-    category: 'Transportation',
-    limit: 500000,
-    spent: 320000,
-    period: 'monthly',
-    date: new Date().toISOString().split('T')[0],
-  },
-  {
-    id: 3,
-    category: 'Entertainment',
-    limit: 1000000,
-    spent: 650000,
-    period: 'monthly',
-    date: new Date().toISOString().split('T')[0],
-  },
-];
-
-const mockSavings: Saving[] = [
-  {
-    id: 1,
-    goal: 'Liburan ke Bali',
-    amount: 5000000,
-    target: 15000000,
-    targetDate: '2025-12-31',
-    icon: 'airplane',
-  },
-  {
-    id: 2,
-    goal: 'Dana Darurat',
-    amount: 10000000,
-    target: 30000000,
-    targetDate: '2025-12-31',
-    icon: 'shield-checkmark',
-  },
-  {
-    id: 3,
-    goal: 'Beli Laptop',
-    amount: 8000000,
-    target: 20000000,
-    targetDate: '2025-06-30',
-    icon: 'laptop',
-  },
-];
-
-// 🔧 API timeout utility
-const fetchWithTimeout = async (
-  url: string,
-  options: RequestInit = {},
-  timeout = 5000,
-) => {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-
+// Mengambil data pengguna yang sedang login
+export const fetchUserData = async (): Promise<ApiResponse<User>> => {
   try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-    clearTimeout(id);
-    return response;
-  } catch (error) {
-    clearTimeout(id);
-    throw error;
-  }
-};
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-// 📡 Fetch user data
-export const fetchUserData = async (): Promise<User> => {
-  try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/user/1`, {}, 3000);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (!user) {
+      return {
+        success: false,
+        data: null,
+        error: 'Pengguna tidak terotentikasi.',
+      };
     }
 
-    const data = await response.json();
-    return data;
+    // Mengambil data profil dari tabel 'users' berdasarkan ID Auth
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id) // Filter berdasarkan user.id (UUID)
+      .single();
+
+    if (error) throw error;
+
+    return { success: true, data: data as User };
   } catch (error) {
-    console.warn('⚠️ API failed, using mock data:', error);
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    return mockUser;
+    return handleSupabaseError(error, 'Gagal memuat data pengguna.');
   }
 };
 
-// 📡 Fetch transactions
-export const fetchTransactions = async (): Promise<Transaction[]> => {
+// Mengambil daftar transaksi
+export const fetchTransactions = async (): Promise<
+  ApiResponse<Transaction[]>
+> => {
   try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}/transactions?_sort=date&_order=desc`,
-      {},
-      3000,
-    );
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    console.log('📝 Fetching transactions for user:', user?.id);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // RLS Policies akan memastikan hanya transaksi milik user yang diambil
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching transactions:', error);
+      throw error;
     }
 
-    const data = await response.json();
-    return data;
+    console.log('✅ Transactions fetched:', data?.length || 0);
+    return { success: true, data: (data || []) as Transaction[] };
   } catch (error) {
-    console.warn('⚠️ API failed, using mock data:', error);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    return mockTransactions;
+    return handleSupabaseError(error, 'Gagal memuat transaksi.');
   }
 };
 
-// 📡 Fetch categories
-export const fetchCategories = async (): Promise<Category[]> => {
+// Mengambil daftar anggaran (budget)
+export const fetchBudgets = async (): Promise<ApiResponse<Budget[]>> => {
   try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}/categories`,
-      {},
-      3000,
-    );
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    console.log('💰 Fetching budgets for user:', user?.id);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    const { data, error } = await supabase.from('budgets').select('*');
+
+    if (error) {
+      console.error('❌ Error fetching budgets:', error);
+      throw error;
     }
 
-    const data = await response.json();
-    return data;
+    console.log('✅ Budgets fetched:', data?.length || 0);
+    return { success: true, data: (data || []) as Budget[] };
   } catch (error) {
-    console.warn('⚠️ API failed, using default categories:', error);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    return [
-      { id: 1, name: 'Food', color: '#EF4444' },
-      { id: 2, name: 'Transportation', color: '#F59E0B' },
-      { id: 3, name: 'Entertainment', color: '#8B5CF6' },
-      { id: 4, name: 'Housing', color: '#3B82F6' },
-      { id: 5, name: 'Bills', color: '#10B981' },
-      { id: 6, name: 'Shopping', color: '#EC4899' },
-      { id: 7, name: 'Health', color: '#14B8A6' },
-      { id: 8, name: 'Education', color: '#6366F1' },
-    ];
+    return handleSupabaseError(error, 'Gagal memuat anggaran.');
   }
 };
 
-// 📡 Fetch budgets
-export const fetchBudgets = async (): Promise<Budget[]> => {
+// Mengambil daftar tabungan (savings)
+export const fetchSavings = async (): Promise<ApiResponse<Saving[]>> => {
   try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}/budgets`,
-      {},
-      3000,
-    );
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    console.log('🎯 Fetching savings for user:', user?.id);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    const { data, error } = await supabase.from('savings').select('*');
+
+    if (error) {
+      console.error('❌ Error fetching savings:', error);
+      throw error;
     }
 
-    const data = await response.json();
-    return data;
+    console.log('✅ Savings fetched:', data?.length || 0);
+    return { success: true, data: (data || []) as Saving[] };
   } catch (error) {
-    console.warn('⚠️ API failed, using mock data:', error);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    return mockBudgets;
+    return handleSupabaseError(error, 'Gagal memuat target tabungan.');
   }
 };
 
-// 📡 Fetch savings
-export const fetchSavings = async (): Promise<Saving[]> => {
-  try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}/savings`,
-      {},
-      3000,
-    );
+// --- FUNGSI TULIS DATA (Mutasi) ---
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.warn('⚠️ API failed, using mock data:', error);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    return mockSavings;
-  }
-};
-
-// ✅ Add new transaction
+// Menambahkan transaksi baru
 export const addTransaction = async (
-  transaction: Transaction,
+  transaction: Omit<Transaction, 'id' | 'user_id' | 'type'>,
 ): Promise<ApiResponse<Transaction>> => {
   try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}/transactions`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(transaction),
-      },
-      5000,
-    );
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Pengguna belum login.');
 
-    if (!response.ok) {
-      throw new Error('Failed to add transaction');
-    }
-
-    const data = await response.json();
-    return { success: true, data };
-  } catch (error) {
-    // Fallback: return the transaction with generated ID
-    console.warn('⚠️ API failed, transaction saved locally:', error);
-    return {
-      success: true,
-      data: { ...transaction, id: Date.now() },
+    const newTransactionData = {
+      ...transaction,
+      user_id: user.id, // Tambahkan Kunci Asing user_id
+      type: transaction.amount > 0 ? 'income' : 'expense', // Hitung tipe
     };
-  }
-};
 
-// 🗑️ Delete transaction
-export const deleteTransaction = async (
-  id: number,
-): Promise<ApiResponse<boolean>> => {
-  try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}/transactions/${id}`,
-      {
-        method: 'DELETE',
-      },
-      5000,
-    );
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert(newTransactionData)
+      .select('*')
+      .single();
 
-    if (!response.ok) {
-      throw new Error('Failed to delete transaction');
-    }
+    if (error) throw error;
 
-    return { success: true, data: true };
+    // Update user balance
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        balance: supabase.rpc('increment_balance', {
+          amount: transaction.amount,
+        }),
+      })
+      .eq('id', user.id);
+
+    return { success: true, data: data as Transaction };
   } catch (error) {
-    return handleApiError(error, 'Failed to delete transaction');
+    return handleSupabaseError(error, 'Gagal menambahkan transaksi.');
   }
 };
 
-// ✏️ Update transaction
-export const updateTransaction = async (
-  id: number,
-  transaction: Partial<Transaction>,
-): Promise<ApiResponse<Transaction>> => {
+// ✅ BARU: Menambahkan budget baru
+export const addBudget = async (
+  budget: Omit<Budget, 'id' | 'user_id' | 'spent'>,
+): Promise<ApiResponse<Budget>> => {
   try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}/transactions/${id}`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(transaction),
-      },
-      5000,
-    );
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Pengguna belum login.');
 
-    if (!response.ok) {
-      throw new Error('Failed to update transaction');
-    }
+    const newBudgetData = {
+      ...budget,
+      user_id: user.id,
+      spent: 0, // Inisialisasi spent ke 0
+    };
 
-    const data = await response.json();
-    return { success: true, data };
+    const { data, error } = await supabase
+      .from('budgets')
+      .insert(newBudgetData)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    return { success: true, data: data as Budget };
   } catch (error) {
-    return handleApiError(error, 'Failed to update transaction');
+    return handleSupabaseError(error, 'Gagal menambahkan budget.');
   }
 };
 
-// 🎯 Validation utilities
+// ✅ BARU: Menambahkan saving baru
+export const addSaving = async (
+  saving: Omit<Saving, 'id' | 'user_id'>,
+): Promise<ApiResponse<Saving>> => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Pengguna belum login.');
+
+    const newSavingData = {
+      ...saving,
+      user_id: user.id,
+    };
+
+    const { data, error } = await supabase
+      .from('savings')
+      .insert(newSavingData)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    return { success: true, data: data as Saving };
+  } catch (error) {
+    return handleSupabaseError(error, 'Gagal menambahkan target tabungan.');
+  }
+};
+
+// Memperbarui limit anggaran (Budget)
+export const updateBudgetLimit = async (
+  budgetId: string,
+  newLimit: number,
+): Promise<ApiResponse<Budget>> => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Pengguna belum login.');
+
+    const { data, error } = await supabase
+      .from('budgets')
+      .update({ limit: newLimit })
+      .eq('id', budgetId)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, data: data as Budget };
+  } catch (error) {
+    return handleSupabaseError(error, 'Gagal memperbarui limit anggaran.');
+  }
+};
+
+// Menghapus anggaran (Budget)
+export const deleteBudget = async (
+  budgetId: string,
+): Promise<ApiResponse<null>> => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Pengguna belum login.');
+
+    const { error } = await supabase
+      .from('budgets')
+      .delete()
+      .eq('id', budgetId)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    return { success: true, data: null };
+  } catch (error) {
+    return handleSupabaseError(error, 'Gagal menghapus anggaran.');
+  }
+};
+
+// Memperbarui jumlah tabungan (Saving)
+export const updateSavingAmount = async (
+  savingId: string,
+  amountToAdd: number,
+): Promise<ApiResponse<Saving>> => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Pengguna belum login.');
+
+    const { data: currentSaving, error: fetchError } = await supabase
+      .from('savings')
+      .select('amount')
+      .eq('id', savingId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const newAmount = currentSaving.amount + amountToAdd;
+
+    const { data, error } = await supabase
+      .from('savings')
+      .update({ amount: newAmount })
+      .eq('id', savingId)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, data: data as Saving };
+  } catch (error) {
+    return handleSupabaseError(error, 'Gagal memperbarui jumlah tabungan.');
+  }
+};
+
+// Menghapus target tabungan (Saving)
+export const deleteSaving = async (
+  savingId: string,
+): Promise<ApiResponse<null>> => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Pengguna belum login.');
+
+    const { error } = await supabase
+      .from('savings')
+      .delete()
+      .eq('id', savingId)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    return { success: true, data: null };
+  } catch (error) {
+    return handleSupabaseError(error, 'Gagal menghapus target tabungan.');
+  }
+};
+
+// ✅ BARU: Update Password
+export const updatePassword = async (
+  newPassword: string,
+): Promise<ApiResponse<null>> => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Pengguna belum login.');
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) throw error;
+    return { success: true, data: null };
+  } catch (error) {
+    return handleSupabaseError(error, 'Gagal mengubah password.');
+  }
+};
+
+// ✅ BARU: Update User Profile (name, avatar)
+export const updateUserProfile = async (
+  updates: Partial<Pick<User, 'name' | 'avatar'>>,
+): Promise<ApiResponse<User>> => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Pengguna belum login.');
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, data: data as User };
+  } catch (error) {
+    return handleSupabaseError(error, 'Gagal mengubah profil.');
+  }
+};
+
+// --- VALIDATORS ---
+
+type PartialTransaction = Partial<Transaction> & { date: Date | string };
+type PartialBudget = Partial<Budget>;
+type PartialSaving = Partial<Saving>;
+
 export const validateTransaction = (
-  transaction: Partial<Transaction>,
+  transaction: PartialTransaction,
 ): string | null => {
   if (!transaction.amount || transaction.amount === 0) {
-    return 'Jumlah harus lebih dari 0';
-  }
-  if (!transaction.description || transaction.description.trim() === '') {
-    return 'Deskripsi tidak boleh kosong';
+    return 'Jumlah tidak boleh kosong atau nol';
   }
   if (!transaction.category || transaction.category.trim() === '') {
     return 'Kategori harus dipilih';
   }
-  if (!transaction.date) {
-    return 'Tanggal harus dipilih';
-  }
   return null;
 };
 
-export const validateBudget = (budget: Partial<Budget>): string | null => {
+export const validateBudget = (budget: PartialBudget): string | null => {
   if (!budget.category || budget.category.trim() === '') {
     return 'Kategori harus dipilih';
   }
@@ -420,7 +454,7 @@ export const validateBudget = (budget: Partial<Budget>): string | null => {
   return null;
 };
 
-export const validateSaving = (saving: Partial<Saving>): string | null => {
+export const validateSaving = (saving: PartialSaving): string | null => {
   if (!saving.goal || saving.goal.trim() === '') {
     return 'Nama target tidak boleh kosong';
   }
@@ -431,27 +465,4 @@ export const validateSaving = (saving: Partial<Saving>): string | null => {
     return 'Jumlah saat ini tidak boleh melebihi target';
   }
   return null;
-};
-
-// 📊 Statistics utilities
-export const calculateTotalIncome = (transactions: Transaction[]): number => {
-  return transactions
-    .filter(t => t.amount > 0)
-    .reduce((sum, t) => sum + t.amount, 0);
-};
-
-export const calculateTotalExpense = (transactions: Transaction[]): number => {
-  return transactions
-    .filter(t => t.amount < 0)
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-};
-
-export const getTransactionsByCategory = (
-  transactions: Transaction[],
-): Record<string, number> => {
-  return transactions.reduce((acc, t) => {
-    const amount = Math.abs(t.amount);
-    acc[t.category] = (acc[t.category] || 0) + amount;
-    return acc;
-  }, {} as Record<string, number>);
 };

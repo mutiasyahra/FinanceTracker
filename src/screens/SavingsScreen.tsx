@@ -9,16 +9,29 @@ import {
   TextInput,
   Alert,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { formatCurrency } from '../utils/formatCurrency';
+import { formatCurrency, formatDate } from '../utils/formatCurrency';
 import { Saving } from '../api/api';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Animated } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AddSavingScreen from './AddSavingScreen';
+
+const PRIMARY_COLOR = '#6A0DAD';
+const SECONDARY_COLOR = '#10B981';
+const EXPENSE_COLOR = '#DC143C';
+const BACKGROUND_COLOR = '#F5F3FF';
+const CARD_BACKGROUND = '#FFFFFF';
+const TEXT_COLOR = '#111827';
+const LIGHT_GREY = '#6B7280';
+const COMPLETE_COLOR = '#10B981';
 
 type SavingsScreenProps = {
   savings: Saving[];
   onAddSaving?: (saving: Saving) => void;
-  onUpdateSaving?: (saving: Saving) => void;
+  onUpdateSaving?: (savingId: string | number, amountToAdd: number) => void;
   onDeleteSaving?: (savingId: string | number) => void;
   onRefresh?: () => void;
   refreshing?: boolean;
@@ -36,346 +49,422 @@ const SavingsScreen: React.FC<SavingsScreenProps> = ({
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [selectedSaving, setSelectedSaving] = useState<Saving | null>(null);
   const [updateAmount, setUpdateAmount] = useState('');
+  const [isDeposit, setIsDeposit] = useState(true);
 
-  const getIconForGoal = (icon: string): string => {
-    return icon || 'flag';
+  const buttonScale = new Animated.Value(1);
+
+  const handleAddButtonPress = () => {
+    Animated.sequence([
+      Animated.timing(buttonScale, {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonScale, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowAddModal(true);
+    });
   };
 
-  const getColorForGoal = (goal: string): string => {
-    const goalLower = goal.toLowerCase();
-    if (goalLower.includes('darurat')) return '#EF4444';
-    if (goalLower.includes('rumah')) return '#3B82F6';
-    if (goalLower.includes('liburan')) return '#14B8A6';
-    if (goalLower.includes('laptop') || goalLower.includes('gadget'))
-      return '#6366F1';
-    if (goalLower.includes('mobil') || goalLower.includes('kendaraan'))
-      return '#F59E0B';
-    if (goalLower.includes('nikah') || goalLower.includes('pernikahan'))
-      return '#EC4899';
-    if (goalLower.includes('pendidikan')) return '#8B5CF6';
-    if (goalLower.includes('hobi')) return '#F59E0B';
-    return '#10B981';
+  const getIconForGoal = (
+    iconName: string,
+  ): { emoji: string; color: string } => {
+    const icons = [
+      { icon: 'shield', emoji: '🛡️', name: 'Dana Darurat', color: '#EF4444' },
+      { icon: 'home', emoji: '🏠', name: 'Rumah', color: '#F59E0B' },
+      { icon: 'airplane', emoji: '✈️', name: 'Liburan', color: '#3B82F6' },
+      { icon: 'car', emoji: '🚗', name: 'Kendaraan', color: '#8B5CF6' },
+      { icon: 'briefcase', emoji: '🎓', name: 'Pendidikan', color: '#059669' },
+      { icon: 'gift', emoji: '🎁', name: 'Lain-lain', color: '#EC4899' },
+    ];
+    const found = icons.find(i => i.icon === iconName);
+    return found || { emoji: '🎯', color: PRIMARY_COLOR };
   };
 
-  const calculateProgress = (amount: number, target: number): number => {
-    return target > 0 ? (amount / target) * 100 : 0;
+  const calculateProgress = (current: number, target: number): number => {
+    return target > 0 ? (current / target) * 100 : 0;
   };
 
-  const handleAddSaving = (saving: Saving) => {
-    if (onAddSaving) {
-      onAddSaving(saving);
-    }
-    setShowAddModal(false);
-  };
-
-  const handleOpenUpdate = (saving: Saving) => {
+  const handleOpenUpdateModal = (saving: Saving) => {
     setSelectedSaving(saving);
     setUpdateAmount('');
+    setIsDeposit(true);
     setShowUpdateModal(true);
   };
 
-  const handleUpdateAmount = () => {
-    if (!selectedSaving || !updateAmount) {
-      Alert.alert('Error', 'Mohon masukkan jumlah tabungan');
+  const handleUpdateSavingAmount = () => {
+    if (!selectedSaving || !onUpdateSaving) return;
+
+    const rawNumber = updateAmount.replace(/\D/g, '');
+    const amountValue = Number(rawNumber);
+
+    if (amountValue <= 0 || isNaN(amountValue)) {
+      Alert.alert('Gagal', 'Jumlah harus lebih dari 0.');
       return;
     }
 
-    const amount = parseFloat(updateAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Jumlah tidak valid');
+    const finalAmount = isDeposit ? amountValue : -amountValue;
+
+    if (!isDeposit && selectedSaving.amount < amountValue) {
+      Alert.alert('Gagal', 'Jumlah penarikan melebihi saldo tabungan.');
       return;
     }
 
-    const updatedSaving = {
-      ...selectedSaving,
-      amount: selectedSaving.amount + amount,
-    };
-
-    if (onUpdateSaving) {
-      onUpdateSaving(updatedSaving);
-    }
-
+    onUpdateSaving(selectedSaving.id, finalAmount);
     setShowUpdateModal(false);
     setSelectedSaving(null);
-    setUpdateAmount('');
   };
 
-  const handleDeleteSaving = (saving: Saving) => {
-    Alert.alert(
-      'Hapus Target Tabungan',
-      `Apakah Anda yakin ingin menghapus target "${saving.goal}"?`,
-      [
-        {
-          text: 'Batal',
-          style: 'cancel',
-        },
-        {
-          text: 'Hapus',
-          style: 'destructive',
-          onPress: () => {
-            if (onDeleteSaving) {
-              onDeleteSaving(saving.id);
-            }
-          },
-        },
-      ],
+  const handleAmountChange = (text: string) => {
+    const rawNumber = text.replace(/\D/g, '');
+    setUpdateAmount(rawNumber);
+  };
+
+  const SavingCard: React.FC<{ saving: Saving }> = ({ saving }) => {
+    const progress = calculateProgress(saving.amount, saving.target || 0);
+    const remaining = Math.max(0, (saving.target || 0) - saving.amount);
+    const isCompleted = saving.amount >= (saving.target || 0);
+
+    const progressColor = isCompleted ? COMPLETE_COLOR : PRIMARY_COLOR;
+    const iconInfo = getIconForGoal(saving.icon || 'star');
+
+    const targetText = saving.target
+      ? formatCurrency(saving.target)
+      : 'Target Tidak Ditentukan';
+
+    return (
+      <TouchableOpacity
+        style={[styles.cardContainer, styles.shadowStyle]}
+        onPress={() => handleOpenUpdateModal(saving)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.cardHeader}>
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: iconInfo.color + '20' },
+            ]}
+          >
+            <Text style={styles.iconEmoji}>{iconInfo.emoji}</Text>
+          </View>
+
+          <View style={styles.cardTitleGroup}>
+            <Text style={styles.cardGoal} numberOfLines={1}>
+              {saving.goal}
+            </Text>
+            <Text style={styles.cardTarget}>Target: {targetText}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={LIGHT_GREY} />
+        </View>
+
+        <View style={styles.progressBarWrapper}>
+          <View style={styles.progressBarContainer}>
+            <View
+              style={[
+                styles.progressBar,
+                {
+                  width: `${Math.min(100, progress)}%`,
+                  backgroundColor: progressColor,
+                },
+              ]}
+            />
+          </View>
+          <Text style={[styles.percentageText, { color: progressColor }]}>
+            {Math.round(progress)}%
+          </Text>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Terkumpul</Text>
+            <Text style={[styles.summaryAmount, { color: PRIMARY_COLOR }]}>
+              {formatCurrency(saving.amount)}
+            </Text>
+          </View>
+
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Sisa Target</Text>
+            <Text
+              style={[
+                styles.summaryAmountRemaining,
+                { color: isCompleted ? COMPLETE_COLOR : EXPENSE_COLOR },
+              ]}
+            >
+              {isCompleted ? 'Selesai!' : formatCurrency(remaining)}
+            </Text>
+          </View>
+
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Batas Waktu</Text>
+            <Text style={[styles.summaryAmount, { color: LIGHT_GREY }]}>
+              {saving.targetDate ? formatDate(saving.targetDate) : 'N/A'}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
     );
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Belum ditentukan';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Target Tabungan</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
-        >
-          <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Tambah Target</Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={styles.listContainer}
+        contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#10B981']}
-            tintColor="#10B981"
+            tintColor={PRIMARY_COLOR}
           />
         }
       >
+        <Text style={styles.sectionTitle}>Target Tabungan Aktif</Text>
         {savings.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="piggy-bank-outline" size={64} color="#9CA3AF" />
-            <Text style={styles.emptyText}>Belum ada tabungan</Text>
-            <Text style={styles.emptySubtext}>
-              Mulai menabung untuk masa depan Anda
+          <View style={styles.emptyState}>
+            <Ionicons name="cash-outline" size={50} color="#9CA3AF" />
+            <Text style={styles.emptyText}>
+              Belum ada target tabungan yang dibuat.
             </Text>
           </View>
         ) : (
-          savings.map(saving => {
-            const target = saving.target || saving.amount * 3.33;
-            const progress = calculateProgress(saving.amount, target);
-            const remaining = target - saving.amount;
-            const iconName = getIconForGoal(saving.icon || '');
-            const iconColor = getColorForGoal(saving.goal);
-
-            return (
-              <View key={saving.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: iconColor + '20' },
-                    ]}
-                  >
-                    <Ionicons name={iconName} size={40} color={iconColor} />
-                  </View>
-                  <View style={styles.headerContent}>
-                    <Text style={styles.goal}>{saving.goal}</Text>
-                    <Text style={styles.targetDate}>
-                      Target: {formatDate(saving.targetDate)}
-                    </Text>
-                  </View>
-                  <View style={styles.actionsContainer}>
-                    <TouchableOpacity
-                      style={styles.actionIcon}
-                      onPress={() => handleOpenUpdate(saving)}
-                    >
-                      <Ionicons name="add-circle" size={28} color={iconColor} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionIcon}
-                      onPress={() => handleDeleteSaving(saving)}
-                    >
-                      <Ionicons name="trash" size={24} color="#EF4444" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={styles.progressSection}>
-                  <View style={styles.progressHeader}>
-                    <Text style={styles.progressLabel}>Progress</Text>
-                    <Text
-                      style={[styles.progressPercentage, { color: iconColor }]}
-                    >
-                      {progress.toFixed(0)}%
-                    </Text>
-                  </View>
-                  <View style={styles.progressBarContainer}>
-                    <View
-                      style={[
-                        styles.progressBar,
-                        {
-                          width: `${Math.min(progress, 100)}%`,
-                          backgroundColor: iconColor,
-                        },
-                      ]}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.amountSection}>
-                  <View style={styles.amountBox}>
-                    <Text style={styles.amountLabel}>Terkumpul</Text>
-                    <Text
-                      style={[styles.collectedAmount, { color: iconColor }]}
-                    >
-                      {formatCurrency(saving.amount)}
-                    </Text>
-                  </View>
-                  <View style={styles.amountBox}>
-                    <Text style={styles.amountLabel}>Target</Text>
-                    <Text style={styles.targetAmount}>
-                      {formatCurrency(target)}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.remainingSection}>
-                  <Text style={styles.remainingLabel}>Sisa</Text>
-                  <Text style={styles.remainingAmount}>
-                    {formatCurrency(Math.max(remaining, 0))}
-                  </Text>
-                </View>
-              </View>
-            );
-          })
+          savings.map(saving => <SavingCard key={saving.id} saving={saving} />)
         )}
       </ScrollView>
 
-      {/* Add Saving Modal */}
-      <AddSavingScreen
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSave={handleAddSaving}
-      />
+      <View style={styles.footer}>
+        <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleAddButtonPress}
+            activeOpacity={0.9}
+          >
+            <Ionicons name="add-circle-sharp" size={24} color="#FFFFFF" />
+            <Text style={styles.addButtonText}>Tambah Target</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
 
-      {/* Update Amount Modal */}
-      <Modal visible={showUpdateModal} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Tambah Tabungan</Text>
-              <TouchableOpacity onPress={() => setShowUpdateModal(false)}>
-                <Ionicons name="close" size={24} color="#111827" />
-              </TouchableOpacity>
-            </View>
+      {onAddSaving && (
+        <AddSavingScreen
+          visible={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSave={onAddSaving}
+        />
+      )}
 
-            {selectedSaving && (
-              <>
-                <View style={styles.modalGoalHeader}>
-                  <View
-                    style={[
-                      styles.modalIconCircle,
-                      {
-                        backgroundColor:
-                          getColorForGoal(selectedSaving.goal) + '20',
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={getIconForGoal(selectedSaving.icon || '')}
-                      size={32}
-                      color={getColorForGoal(selectedSaving.goal)}
-                    />
-                  </View>
-                  <Text style={styles.modalGoal}>{selectedSaving.goal}</Text>
-                </View>
-
-                <View style={styles.modalInputGroup}>
-                  <Text style={styles.modalLabel}>Jumlah Menabung</Text>
-                  <View style={styles.modalAmountInput}>
-                    <Text style={styles.modalCurrency}>Rp</Text>
-                    <TextInput
-                      style={styles.modalAmountTextInput}
-                      placeholder="0"
-                      keyboardType="numeric"
-                      value={updateAmount}
-                      onChangeText={setUpdateAmount}
-                      placeholderTextColor="#9CA3AF"
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.modalSummary}>
-                  <View style={styles.modalSummaryRow}>
-                    <Text style={styles.modalSummaryLabel}>
-                      Tabungan Saat Ini:
-                    </Text>
-                    <Text style={styles.modalSummaryValue}>
-                      {formatCurrency(selectedSaving.amount)}
-                    </Text>
-                  </View>
-                  <View style={styles.modalSummaryRow}>
-                    <Text style={styles.modalSummaryLabel}>
-                      Setelah Ditambah:
-                    </Text>
-                    <Text
-                      style={[
-                        styles.modalSummaryValue,
-                        { color: getColorForGoal(selectedSaving.goal) },
-                      ]}
-                    >
-                      {formatCurrency(
-                        selectedSaving.amount + (parseFloat(updateAmount) || 0),
-                      )}
-                    </Text>
-                  </View>
-                  <View style={styles.modalSummaryDivider} />
-                  <View style={styles.modalSummaryRow}>
-                    <Text style={styles.modalSummaryLabel}>Target:</Text>
-                    <Text style={styles.modalSummaryValue}>
-                      {formatCurrency(
-                        selectedSaving.target || selectedSaving.amount * 3.33,
-                      )}
-                    </Text>
-                  </View>
-                  <View style={styles.modalSummaryRow}>
-                    <Text style={styles.modalSummaryLabel}>Sisa:</Text>
-                    <Text style={styles.modalSummaryValue}>
-                      {formatCurrency(
-                        Math.max(
-                          (selectedSaving.target ||
-                            selectedSaving.amount * 3.33) -
-                            (selectedSaving.amount +
-                              (parseFloat(updateAmount) || 0)),
-                          0,
-                        ),
-                      )}
-                    </Text>
-                  </View>
-                </View>
-
+      {/* ✅ MODAL WITH KEYBOARD AVOIDING */}
+      <Modal
+        visible={showUpdateModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowUpdateModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.modalOverlayTouchable}
+            onPress={() => setShowUpdateModal(false)}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              style={styles.modalContent}
+              onPress={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Update Tabungan</Text>
                 <TouchableOpacity
-                  style={[
-                    styles.modalSaveButton,
-                    {
-                      backgroundColor: getColorForGoal(selectedSaving.goal),
-                    },
-                  ]}
-                  onPress={handleUpdateAmount}
+                  onPress={() => setShowUpdateModal(false)}
+                  style={styles.modalCloseButton}
                 >
-                  <Text style={styles.modalSaveButtonText}>
-                    Simpan Tabungan
-                  </Text>
+                  <Ionicons name="close-circle" size={28} color="#6B7280" />
                 </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
+              </View>
+
+              <ScrollView style={styles.modalBody}>
+                {selectedSaving && (
+                  <>
+                    {/* Goal Info */}
+                    <View style={styles.goalInfoBox}>
+                      <Text style={styles.goalInfoEmoji}>
+                        {getIconForGoal(selectedSaving.icon || 'star').emoji}
+                      </Text>
+                      <View style={styles.goalInfoText}>
+                        <Text style={styles.modalGoal} numberOfLines={1}>
+                          {selectedSaving.goal}
+                        </Text>
+                        <Text style={styles.modalTarget}>
+                          Target: {formatCurrency(selectedSaving.target || 0)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Type Switch */}
+                    <View style={styles.modalTypeSwitchContainer}>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalTypeButton,
+                          isDeposit && styles.modalTypeSelected,
+                          {
+                            backgroundColor: isDeposit
+                              ? SECONDARY_COLOR
+                              : '#F3F4F6',
+                          },
+                        ]}
+                        onPress={() => setIsDeposit(true)}
+                      >
+                        <Ionicons
+                          name="arrow-down-circle"
+                          size={20}
+                          color={isDeposit ? '#FFFFFF' : SECONDARY_COLOR}
+                        />
+                        <Text
+                          style={[
+                            styles.modalTypeButtonText,
+                            { color: isDeposit ? '#FFFFFF' : '#374151' },
+                          ]}
+                        >
+                          Deposit
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalTypeButton,
+                          !isDeposit && styles.modalTypeSelected,
+                          {
+                            backgroundColor: !isDeposit
+                              ? EXPENSE_COLOR
+                              : '#F3F4F6',
+                          },
+                        ]}
+                        onPress={() => setIsDeposit(false)}
+                      >
+                        <Ionicons
+                          name="arrow-up-circle"
+                          size={20}
+                          color={!isDeposit ? '#FFFFFF' : EXPENSE_COLOR}
+                        />
+                        <Text
+                          style={[
+                            styles.modalTypeButtonText,
+                            { color: !isDeposit ? '#FFFFFF' : '#374151' },
+                          ]}
+                        >
+                          Tarik Dana
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Input Amount */}
+                    <View style={styles.modalInputGroup}>
+                      <Text style={styles.modalLabel}>
+                        Jumlah ({isDeposit ? 'Deposit' : 'Tarik'})
+                      </Text>
+                      <View style={styles.modalAmountInput}>
+                        <Text style={styles.modalCurrency}>Rp</Text>
+                        <TextInput
+                          style={styles.modalAmountTextInput}
+                          placeholder="0"
+                          placeholderTextColor="#9CA3AF"
+                          keyboardType="numeric"
+                          value={updateAmount}
+                          onChangeText={handleAmountChange}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Summary Info */}
+                    <View style={styles.modalSummary}>
+                      <View style={styles.summaryInfoRow}>
+                        <Text style={styles.summaryInfoLabel}>
+                          Terkumpul Saat Ini
+                        </Text>
+                        <Text
+                          style={[
+                            styles.summaryInfoValue,
+                            { color: PRIMARY_COLOR },
+                          ]}
+                        >
+                          {formatCurrency(selectedSaving.amount)}
+                        </Text>
+                      </View>
+                      <View style={styles.summaryInfoRow}>
+                        <Text style={styles.summaryInfoLabel}>Sisa Target</Text>
+                        <Text
+                          style={[
+                            styles.summaryInfoValue,
+                            { color: EXPENSE_COLOR },
+                          ]}
+                        >
+                          {formatCurrency(
+                            Math.max(
+                              0,
+                              (selectedSaving.target || 0) -
+                                selectedSaving.amount,
+                            ),
+                          )}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Action Buttons */}
+                    <View style={styles.modalActions}>
+                      <TouchableOpacity
+                        style={[styles.modalActionButton, styles.saveButton]}
+                        onPress={handleUpdateSavingAmount}
+                      >
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={20}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.modalButtonText}>
+                          Simpan {isDeposit ? 'Deposit' : 'Tarik'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.modalActionButton, styles.deleteButton]}
+                        onPress={() => {
+                          Alert.alert(
+                            'Hapus Target',
+                            `Anda yakin ingin menghapus target ${selectedSaving.goal}?`,
+                            [
+                              { text: 'Batal', style: 'cancel' },
+                              {
+                                text: 'Hapus',
+                                onPress: () => {
+                                  onDeleteSaving &&
+                                    onDeleteSaving(selectedSaving.id);
+                                  setShowUpdateModal(false);
+                                },
+                                style: 'destructive',
+                              },
+                            ],
+                          );
+                        }}
+                      >
+                        <Ionicons
+                          name="trash-sharp"
+                          size={20}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.modalButtonText}>Hapus</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </ScrollView>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -384,213 +473,251 @@ const SavingsScreen: React.FC<SavingsScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: BACKGROUND_COLOR,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    backgroundColor: '#E8F5E9',
+  listContainer: {
+    flex: 1,
   },
-  title: {
-    fontSize: 24,
+  listContent: {
+    padding: 16,
+    paddingBottom: 90,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#10B981',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 12,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 0,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
     marginBottom: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  },
+  cardContainer: {
+    backgroundColor: CARD_BACKGROUND,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    borderLeftWidth: 0,
+  },
+  shadowStyle: {
+    elevation: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  goal: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  targetDate: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionIcon: {
-    padding: 4,
-  },
-  progressSection: {
     marginBottom: 16,
   },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  iconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginRight: 15,
   },
-  progressLabel: {
-    fontSize: 12,
-    color: '#6B7280',
+  iconEmoji: {
+    fontSize: 28,
   },
-  progressPercentage: {
-    fontSize: 14,
-    fontWeight: 'bold',
+  cardTitleGroup: {
+    flex: 1,
+  },
+  cardGoal: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: TEXT_COLOR,
+  },
+  cardTarget: {
+    fontSize: 13,
+    color: LIGHT_GREY,
+    marginTop: 2,
+  },
+  progressBarWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   progressBarContainer: {
-    height: 8,
+    flex: 1,
+    height: 10,
     backgroundColor: '#E5E7EB',
-    borderRadius: 4,
+    borderRadius: 5,
     overflow: 'hidden',
+    marginRight: 10,
   },
   progressBar: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 5,
   },
-  amountSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  amountBox: {
-    alignItems: 'center',
-  },
-  amountLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  collectedAmount: {
-    fontSize: 20,
+  percentageText: {
+    fontSize: 14,
     fontWeight: 'bold',
   },
-  targetAmount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  remainingSection: {
+  summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingHorizontal: 0,
+    borderTopWidth: 1,
+    borderTopColor: BACKGROUND_COLOR,
     paddingTop: 16,
+  },
+  summaryItem: {
+    width: '33%',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: LIGHT_GREY,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  summaryAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PRIMARY_COLOR,
+    textAlign: 'center',
+  },
+  summaryAmountRemaining: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: EXPENSE_COLOR,
+    textAlign: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    backgroundColor: CARD_BACKGROUND,
+    borderRadius: 16,
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#9CA3AF',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    backgroundColor: CARD_BACKGROUND,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
-  remainingLabel: {
-    fontSize: 14,
-    color: '#6B7280',
+  addButton: {
+    backgroundColor: PRIMARY_COLOR,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    elevation: 3,
+    shadowColor: PRIMARY_COLOR,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
-  remainingAmount: {
+  addButtonText: {
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
   },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
+
+  // ✅ MODAL STYLES - KEYBOARD RESPONSIVE
   modalOverlay: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+  },
+  modalOverlayTouchable: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '80%',
+    backgroundColor: CARD_BACKGROUND,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '85%',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#111827',
   },
-  modalGoalHeader: {
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  goalInfoBox: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: BACKGROUND_COLOR,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 20,
     gap: 12,
   },
-  modalIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+  goalInfoEmoji: {
+    fontSize: 32,
+  },
+  goalInfoText: {
+    flex: 1,
   },
   modalGoal: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#111827',
-    flex: 1,
+    marginBottom: 4,
   },
+  modalTarget: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  modalTypeSwitchContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  modalTypeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  modalTypeButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  modalTypeSelected: {},
   modalInputGroup: {
     marginBottom: 20,
   },
@@ -603,10 +730,10 @@ const styles = StyleSheet.create({
   modalAmountInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: BACKGROUND_COLOR,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderWidth: 2,
+    borderColor: PRIMARY_COLOR + '40',
     paddingHorizontal: 16,
   },
   modalCurrency: {
@@ -619,43 +746,62 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
+    color: PRIMARY_COLOR,
     paddingVertical: 16,
   },
   modalSummary: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: BACKGROUND_COLOR,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
+    gap: 8,
   },
-  modalSummaryRow: {
+  summaryInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
   },
-  modalSummaryDivider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 8,
-  },
-  modalSummaryLabel: {
+  summaryInfoLabel: {
     fontSize: 14,
     color: '#6B7280',
+    fontWeight: '500',
   },
-  modalSummaryValue: {
-    fontSize: 14,
+  summaryInfoValue: {
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#111827',
   },
-  modalSaveButton: {
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
   },
-  modalSaveButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  modalActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 12,
+    gap: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  saveButton: {
+    backgroundColor: PRIMARY_COLOR,
+    flex: 2,
+  },
+  deleteButton: {
+    backgroundColor: EXPENSE_COLOR,
+    flex: 1,
+  },
+  modalButtonText: {
     color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

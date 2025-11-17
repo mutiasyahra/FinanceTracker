@@ -1,24 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
+  Alert,
 } from 'react-native';
 import { User, Transaction } from '../api/api';
 import { formatCurrency } from '../utils/formatCurrency';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import ChangePasswordScreen from './ChangePasswordScreen';
+
+const PRIMARY_COLOR = '#6A0DAD'; // Dark Violet - Main Accent
+const SECONDARY_COLOR = '#9370DB'; // Medium Purple - Lighter Accent
+const EXPENSE_COLOR = '#DC143C'; // Crimson Red
+const INCOME_COLOR = '#10B981'; // Green
+const BACKGROUND_COLOR = '#F5F3FF'; // Very Light Lavender
+const CARD_BACKGROUND = '#FFFFFF';
+const TEXT_COLOR = '#111827';
+const LIGHT_GREY = '#6B7280';
+const SHADOW_COLOR = PRIMARY_COLOR + '40';
 
 type ProfileScreenProps = {
   user: User | null;
   transactions: Transaction[];
+  onLogout: () => void;
+  onChangePassword?: (newPassword: string) => Promise<void>;
+  isLoadingPassword?: boolean;
 };
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({
   user,
   transactions,
+  onLogout,
+  onChangePassword,
+  isLoadingPassword = false,
 }) => {
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+
   if (!user) {
     return (
       <View style={styles.container}>
@@ -27,6 +48,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     );
   }
 
+  // Calculate statistics
   const totalIncome = transactions
     .filter(t => t.amount > 0)
     .reduce((sum, t) => sum + t.amount, 0);
@@ -35,288 +57,413 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     .filter(t => t.amount < 0)
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
+  const netBalance = user.balance;
   const totalTransactions = transactions.length;
 
   const menuItems = [
     {
-      icon: 'notifications-outline',
-      title: 'Notifikasi',
-      subtitle: 'Atur pengingat keuangan',
+      section: 'Pengaturan Akun',
+      items: [
+        {
+          icon: 'lock-closed',
+          title: 'Ubah Password',
+          subtitle: 'Ganti password akun Anda',
+          color: PRIMARY_COLOR,
+          action: () => {
+            if (onChangePassword) {
+              setShowChangePasswordModal(true);
+            } else {
+              Alert.alert('Info', 'Fitur ubah password belum tersedia.');
+            }
+          },
+        },
+        {
+          icon: 'notifications',
+          title: 'Notifikasi',
+          subtitle: 'Atur pengingat keuangan',
+          color: SECONDARY_COLOR,
+          action: () =>
+            Alert.alert('Fitur', 'Notifikasi sedang dalam pengembangan.'),
+        },
+        {
+          icon: 'language',
+          title: 'Bahasa',
+          subtitle: 'Indonesia',
+          color: '#F59E0B',
+          action: () =>
+            Alert.alert(
+              'Fitur',
+              'Pengaturan Bahasa sedang dalam pengembangan.',
+            ),
+        },
+      ],
     },
     {
-      icon: 'lock-closed-outline',
-      title: 'Keamanan',
-      subtitle: 'Pengaturan keamanan akun',
-    },
-    { icon: 'language-outline', title: 'Bahasa', subtitle: 'Indonesia' },
-    { icon: 'moon-outline', title: 'Tema', subtitle: 'Terang' },
-    {
-      icon: 'help-circle-outline',
-      title: 'Bantuan',
-      subtitle: 'Pusat bantuan dan FAQ',
+      section: 'Dukungan',
+      items: [
+        {
+          icon: 'help-circle',
+          title: 'Bantuan & FAQ',
+          subtitle: 'Temukan jawaban atas pertanyaan Anda',
+          color: '#3B82F6',
+          action: () =>
+            Alert.alert('Fitur', 'Bantuan sedang dalam pengembangan.'),
+        },
+        {
+          icon: 'star',
+          title: 'Beri Penilaian',
+          subtitle: 'Dukung kami dengan rating terbaik!',
+          color: INCOME_COLOR,
+          action: () =>
+            Alert.alert('Fitur', 'Penilaian sedang dalam pengembangan.'),
+        },
+      ],
     },
   ];
 
-  return (
-    <ScrollView style={styles.container}>
-      {/* Profile Card */}
-      <View style={styles.profileCard}>
-        <View style={styles.avatarCircle}>
-          <Ionicons name="person" size={48} color="#FFFFFF" />
-        </View>
-        <Text style={styles.userName}>{user.name}</Text>
-        <Text style={styles.userEmail}>{user.email}</Text>
-        <TouchableOpacity style={styles.editButton}>
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
+  const renderMenuItem = (
+    item: (typeof menuItems)[0]['items'][0],
+    isLast: boolean,
+  ) => (
+    <TouchableOpacity
+      key={item.title}
+      style={[styles.menuItem, isLast && { borderBottomWidth: 0 }]}
+      onPress={item.action}
+      activeOpacity={0.8}
+    >
+      <View
+        style={[
+          styles.menuIconContainer,
+          { backgroundColor: item.color + '20', borderRadius: 12 },
+        ]}
+      >
+        <Ionicons name={item.icon as any} size={24} color={item.color} />
       </View>
+      <View style={styles.menuContent}>
+        <Text style={styles.menuTitle}>{item.title}</Text>
+        <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+    </TouchableOpacity>
+  );
 
-      {/* Balance Summary */}
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Ringkasan Keuangan</Text>
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryItem}>
-            <Ionicons name="wallet" size={32} color="#10B981" />
-            <Text style={styles.summaryLabel}>Saldo</Text>
-            <Text style={styles.summaryValue}>
-              {formatCurrency(user.balance)}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Ionicons name="trending-up" size={32} color="#10B981" />
-            <Text style={styles.summaryLabel}>Pemasukan</Text>
-            <Text style={[styles.summaryValue, { color: '#10B981' }]}>
+  return (
+    <>
+      <ScrollView style={styles.container}>
+        {/* 1. Header Profile */}
+        <View style={styles.profileHeader}>
+          <Image source={{ uri: user.avatar }} style={styles.avatar} />
+          <Text style={styles.userName}>{user.name}</Text>
+          <Text style={styles.userEmail}>{user.email}</Text>
+        </View>
+
+        {/* 2. Card Saldo Bersih Utama */}
+        <View style={[styles.mainBalanceCard, styles.summaryShadow]}>
+          <Text style={styles.mainBalanceLabel}>Saldo Akun Saat Ini</Text>
+          <Text style={styles.mainBalanceValue}>
+            {formatCurrency(netBalance)}
+          </Text>
+        </View>
+
+        {/* 3. Card Ringkasan Pemasukan & Pengeluaran */}
+        <View style={styles.financialSummaryContainer}>
+          {/* Total Income */}
+          <View style={[styles.smallSummaryCard, styles.summaryShadow]}>
+            <View
+              style={[
+                styles.summaryIconBox,
+                { backgroundColor: INCOME_COLOR + '20' },
+              ]}
+            >
+              <Ionicons name="arrow-up-circle" size={24} color={INCOME_COLOR} />
+            </View>
+            <Text style={styles.summaryLabelSmall}>Pemasukan</Text>
+            <Text style={[styles.summaryValueSmall, { color: INCOME_COLOR }]}>
               {formatCurrency(totalIncome)}
             </Text>
           </View>
-          <View style={styles.summaryItem}>
-            <Ionicons name="trending-down" size={32} color="#EF4444" />
-            <Text style={styles.summaryLabel}>Pengeluaran</Text>
-            <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
+
+          {/* Total Expense */}
+          <View style={[styles.smallSummaryCard, styles.summaryShadow]}>
+            <View
+              style={[
+                styles.summaryIconBox,
+                { backgroundColor: EXPENSE_COLOR + '20' },
+              ]}
+            >
+              <Ionicons
+                name="arrow-down-circle"
+                size={24}
+                color={EXPENSE_COLOR}
+              />
+            </View>
+            <Text style={styles.summaryLabelSmall}>Pengeluaran</Text>
+            <Text style={[styles.summaryValueSmall, { color: EXPENSE_COLOR }]}>
               {formatCurrency(totalExpense)}
             </Text>
           </View>
         </View>
+
+        {/* Ringkasan Jumlah Transaksi */}
         <View style={styles.transactionCount}>
-          <Ionicons name="list" size={20} color="#6B7280" />
+          <Ionicons name="stats-chart" size={16} color={PRIMARY_COLOR} />
           <Text style={styles.transactionCountText}>
-            Total {totalTransactions} transaksi
+            Anda memiliki total {totalTransactions} transaksi tercatat.
           </Text>
         </View>
-      </View>
 
-      {/* Menu Items */}
-      <View style={styles.menuSection}>
-        <Text style={styles.sectionTitle}>Pengaturan</Text>
-        {menuItems.map((item, index) => (
-          <TouchableOpacity key={index} style={styles.menuItem}>
-            <View style={styles.menuIconContainer}>
-              <Ionicons name={item.icon} size={24} color="#10B981" />
+        {/* 4. Menu Settings */}
+        {menuItems.map(section => (
+          <View key={section.section} style={styles.sectionWrapper}>
+            <Text style={styles.sectionTitle}>{section.section}</Text>
+            <View style={styles.menuGroup}>
+              {section.items.map((item, index) =>
+                renderMenuItem(item, index === section.items.length - 1),
+              )}
             </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>{item.title}</Text>
-              <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
+          </View>
         ))}
-      </View>
 
-      {/* Logout Button */}
-      <TouchableOpacity style={styles.logoutButton}>
-        <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-        <Text style={styles.logoutText}>Keluar</Text>
-      </TouchableOpacity>
+        {/* 5. Tombol Logout */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() =>
+            Alert.alert(
+              'Konfirmasi Logout',
+              'Apakah Anda yakin ingin keluar dari akun ini?',
+              [
+                {
+                  text: 'Batal',
+                  style: 'cancel',
+                },
+                {
+                  text: 'Logout',
+                  onPress: onLogout,
+                  style: 'destructive',
+                },
+              ],
+            )
+          }
+          activeOpacity={0.8}
+        >
+          <Ionicons name="log-out-sharp" size={20} color="#FFFFFF" />
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
 
-      {/* App Info */}
-      <View style={styles.appInfo}>
-        <Text style={styles.appInfoText}>Finance Tracker v1.0.0</Text>
-        <Text style={styles.appInfoText}>© 2025 All rights reserved</Text>
-      </View>
-    </ScrollView>
+        <View style={{ height: 50 }} />
+      </ScrollView>
+
+      {/* Modal Change Password */}
+      {onChangePassword && (
+        <ChangePasswordScreen
+          visible={showChangePasswordModal}
+          onClose={() => setShowChangePasswordModal(false)}
+          onChangePassword={onChangePassword}
+          isLoading={isLoadingPassword}
+        />
+      )}
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: BACKGROUND_COLOR,
   },
-  profileCard: {
-    backgroundColor: '#FFFFFF',
-    margin: 20,
-    borderRadius: 20,
-    padding: 24,
+  errorText: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: EXPENSE_COLOR,
+  },
+
+  // --- A. Header Styling ---
+  profileHeader: {
     alignItems: 'center',
+    paddingVertical: 30,
+    backgroundColor: CARD_BACKGROUND,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    marginBottom: 0,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 5,
   },
-  avatarCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#10B981',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
+  avatar: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    marginBottom: 10,
+    borderWidth: 3,
+    borderColor: PRIMARY_COLOR,
   },
   userName: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: TEXT_COLOR,
   },
   userEmail: {
     fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 16,
+    color: LIGHT_GREY,
+    marginTop: 4,
   },
-  editButton: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 12,
+
+  // --- B. Summary Card Styling ---
+  summaryShadow: {
+    elevation: 4,
+    shadowColor: SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
   },
-  editButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#10B981',
-  },
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginBottom: 20,
+
+  mainBalanceCard: {
+    backgroundColor: PRIMARY_COLOR,
+    marginHorizontal: 16,
     borderRadius: 16,
     padding: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
+    marginTop: 16,
     marginBottom: 16,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  summaryItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 8,
+  mainBalanceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BACKGROUND_COLOR,
+    opacity: 0.8,
     marginBottom: 4,
   },
-  summaryValue: {
-    fontSize: 14,
+  mainBalanceValue: {
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#111827',
+    color: CARD_BACKGROUND,
   },
+
+  financialSummaryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 20,
+  },
+  smallSummaryCard: {
+    width: '48%',
+    backgroundColor: CARD_BACKGROUND,
+    borderRadius: 16,
+    padding: 16,
+  },
+  summaryIconBox: {
+    marginBottom: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  summaryLabelSmall: {
+    fontSize: 12,
+    color: LIGHT_GREY,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  summaryValueSmall: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: TEXT_COLOR,
+  },
+
   transactionCount: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    marginHorizontal: 20,
+    marginBottom: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: PRIMARY_COLOR + '10',
+    borderRadius: 8,
     gap: 8,
   },
   transactionCountText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: PRIMARY_COLOR,
+    fontWeight: '600',
   },
-  menuSection: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginBottom: 20,
+
+  // --- C. Menu Styling ---
+  sectionWrapper: {
+    marginBottom: 16,
+  },
+  menuGroup: {
+    backgroundColor: CARD_BACKGROUND,
+    marginHorizontal: 16,
     borderRadius: 16,
-    padding: 4,
-    elevation: 3,
+    overflow: 'hidden',
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
     shadowRadius: 4,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    fontWeight: '700',
+    color: TEXT_COLOR,
+    paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 8,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   menuIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E8F5E9',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   menuContent: {
     flex: 1,
   },
   menuTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: TEXT_COLOR,
     marginBottom: 2,
   },
   menuSubtitle: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    fontSize: 13,
+    color: LIGHT_GREY,
   },
+
+  // --- D. Logout Button Styling ---
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginBottom: 20,
+    backgroundColor: EXPENSE_COLOR,
     padding: 16,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 30,
+    gap: 12,
+    elevation: 4,
+    shadowColor: EXPENSE_COLOR,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 5,
   },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#EF4444',
-  },
-  appInfo: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  appInfoText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 4,
-  },
-  errorText: {
-    textAlign: 'center',
-    color: '#EF4444',
-    fontSize: 16,
-    marginTop: 100,
+  logoutButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

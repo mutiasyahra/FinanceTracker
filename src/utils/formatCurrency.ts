@@ -1,10 +1,12 @@
 export const formatCurrency = (amount: number): string => {
+  // Gunakan Math.abs untuk memastikan jumlah selalu positif saat diformat
+  const absoluteAmount = Math.abs(amount);
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(absoluteAmount);
 };
 
 export const formatNumber = (number: number): string => {

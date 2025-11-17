@@ -5,10 +5,30 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { formatCurrency, formatDate } from '../utils/formatCurrency';
 import { User, Transaction, Budget, Saving } from '../api/api';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import LinearGradient from 'react-native-linear-gradient';
+
+const PRIMARY_COLOR = '#6A0DAD';
+const SECONDARY_COLOR = '#9370DB';
+const INCOME_COLOR = '#10B981';
+const EXPENSE_COLOR = '#DC143C';
+const BACKGROUND_COLOR = '#F5F3FF';
+const CARD_BACKGROUND = '#FFFFFF';
+
+type RootTabParamList = {
+  Dashboard: undefined;
+  Transaksi: undefined;
+  Budget: undefined;
+  Tabungan: undefined;
+};
+
+type NavigationProp = BottomTabNavigationProp<RootTabParamList>;
 
 type DashboardScreenProps = {
   user: User | null;
@@ -27,6 +47,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onRefresh,
   refreshing = false,
 }) => {
+  const navigation = useNavigation<NavigationProp>();
+
   if (!user) {
     return (
       <View style={styles.container}>
@@ -35,7 +57,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     );
   }
 
-  // 📊 Calculate statistics
   const totalIncome = transactions
     .filter(t => t.amount > 0)
     .reduce((sum, t) => sum + t.amount, 0);
@@ -44,333 +65,563 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     .filter(t => t.amount < 0)
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-  const recentTransactions = transactions.slice(0, 5); // Show 5 recent transactions
-  const activeBudgets = budgets.length;
-  const savingsTargets = savings.length;
+  const netBalance = totalIncome - totalExpense;
+  const recentTransactions = transactions.slice(0, 5);
 
-  // 🎨 Get icon for transaction category
-  const getIconForTransaction = (transaction: Transaction) => {
-    const isIncome = transaction.amount > 0;
+  const firstSavingGoal = savings.length > 0 ? savings[0] : null;
 
+  const getTransactionCategoryInfo = (category: string, isIncome: boolean) => {
     if (isIncome) {
-      if (transaction.category === 'Salary') return 'briefcase';
-      if (transaction.category === 'Freelance') return 'laptop';
-      if (transaction.category === 'Investment') return 'trending-up';
-      return 'cash';
+      const incomeCategories = [
+        { name: 'Salary', emoji: '💼', color: INCOME_COLOR },
+        { name: 'Freelance', emoji: '💻', color: SECONDARY_COLOR },
+        { name: 'Investment', emoji: '📊', color: '#F59E0B' },
+        { name: 'Gift', emoji: '🎁', color: '#EC4899' },
+        { name: 'Others', emoji: '💰', color: '#6B7280' },
+      ];
+      const found = incomeCategories.find(c => c.name === category);
+      return found || { emoji: '💵', color: INCOME_COLOR };
+    } else {
+      const expenseCategories = [
+        { name: 'Food & Drink', emoji: '🍕', color: '#EF4444' },
+        { name: 'Transportation', emoji: '🚗', color: '#F59E0B' },
+        { name: 'Shopping', emoji: '🛒', color: '#EC4899' },
+        { name: 'Utilities', emoji: '💡', color: '#3B82F6' },
+        { name: 'Entertainment', emoji: '🎬', color: '#8B5CF6' },
+        { name: 'Health', emoji: '⚕️', color: '#059669' },
+        { name: 'Investment', emoji: '📈', color: '#4B5563' },
+        { name: 'Others', emoji: '📌', color: '#6B7280' },
+      ];
+      const found = expenseCategories.find(c => c.name === category);
+      return found || { emoji: '📦', color: EXPENSE_COLOR };
     }
-
-    if (transaction.category === 'Food') return 'cart';
-    if (transaction.category === 'Housing') return 'home';
-    if (transaction.category === 'Bills') return 'phone-portrait';
-    if (transaction.category === 'Entertainment') return 'film';
-    if (transaction.category === 'Transportation') return 'car';
-    if (transaction.category === 'Shopping') return 'bag-handle';
-    if (transaction.category === 'Health') return 'medkit';
-    if (transaction.category === 'Education') return 'book';
-    return 'cash';
   };
 
-  // 🎨 Get icon color
-  const getIconColor = (transaction: Transaction) => {
-    const isIncome = transaction.amount > 0;
-
-    if (isIncome) return '#10B981';
-
-    if (transaction.category === 'Food') return '#EF4444';
-    if (transaction.category === 'Housing') return '#3B82F6';
-    if (transaction.category === 'Bills') return '#10B981';
-    if (transaction.category === 'Entertainment') return '#8B5CF6';
-    if (transaction.category === 'Transportation') return '#F59E0B';
-    return '#6B7280';
+  const getBudgetCategoryInfo = (category: string) => {
+    const categories = [
+      { name: 'Food', emoji: '🍕', color: '#EF4444' },
+      { name: 'Transportation', emoji: '🚗', color: '#F59E0B' },
+      { name: 'Entertainment', emoji: '🎬', color: '#8B5CF6' },
+      { name: 'Shopping', emoji: '🛒', color: '#EC4899' },
+      { name: 'Utilities', emoji: '💡', color: '#3B82F6' },
+      { name: 'Health', emoji: '⚕️', color: '#059669' },
+      { name: 'Education', emoji: '📚', color: '#6366F1' },
+      { name: 'Others', emoji: '📌', color: '#6B7280' },
+    ];
+    const found = categories.find(c => c.name === category);
+    return found || { emoji: '📦', color: PRIMARY_COLOR };
   };
+
+  const getSavingIconInfo = (iconName: string) => {
+    const icons = [
+      { icon: 'shield', emoji: '🛡️', color: '#EF4444' },
+      { icon: 'home', emoji: '🏠', color: '#F59E0B' },
+      { icon: 'airplane', emoji: '✈️', color: '#3B82F6' },
+      { icon: 'car', emoji: '🚗', color: '#8B5CF6' },
+      { icon: 'briefcase', emoji: '🎓', color: '#059669' },
+      { icon: 'gift', emoji: '🎁', color: '#EC4899' },
+    ];
+    const found = icons.find(i => i.icon === iconName);
+    return found || { emoji: '🎯', color: PRIMARY_COLOR };
+  };
+
+  const getTransactionInfo = (transaction: Transaction) => {
+    const isIncome = transaction.type === 'income' || transaction.amount > 0;
+    const amount = formatCurrency(Math.abs(transaction.amount));
+    const amountStyle = isIncome ? styles.incomeAmount : styles.expenseAmount;
+    const categoryInfo = getTransactionCategoryInfo(
+      transaction.category,
+      isIncome,
+    );
+
+    return {
+      title: transaction.description || transaction.category,
+      amount,
+      amountStyle,
+      emoji: categoryInfo.emoji,
+      iconColor: categoryInfo.color,
+      isIncome,
+    };
+  };
+
+  const savingProgressPercentage = firstSavingGoal
+    ? Math.min(
+        100,
+        (firstSavingGoal.amount / (firstSavingGoal.target || 1)) * 100,
+      )
+    : 0;
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={['#10B981']}
-          tintColor="#10B981"
-        />
-      }
-    >
-      {/* 💳 Balance Card */}
-      <View style={styles.balanceCard}>
-        <View style={styles.balanceHeader}>
-          <Text style={styles.balanceLabel}>Saldo Total</Text>
-          <Ionicons
-            name="wallet"
-            size={48}
-            color="#FFFFFF"
-            style={styles.walletIcon}
+    <View style={styles.container}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={PRIMARY_COLOR}
           />
-        </View>
-        <Text style={styles.balanceAmount}>{formatCurrency(user.balance)}</Text>
+        }
+      >
+        {/* ✅ 1. Card Balance Utama dengan GRADIENT - Soft & Eye-Friendly */}
+        <LinearGradient
+          colors={['#8B5CF6', '#A78BFA', '#C4B5FD']} // paling terang di bawah
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.balanceCard}
+        >
+          <Text style={styles.balanceLabel}>Total Saldo Bersih</Text>
+          <Text style={styles.balanceAmount}>{formatCurrency(netBalance)}</Text>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Ionicons name="trending-up" size={24} color="#FFFFFF" />
-            <Text style={styles.statLabel}>Pemasukan</Text>
-            <Text style={styles.incomeAmount}>
-              {formatCurrency(totalIncome)}
-            </Text>
+          <View style={styles.balanceSummaryRow}>
+            {/* PEMASUKAN */}
+            <View style={styles.balanceSummaryItem}>
+              <Ionicons
+                name="arrow-up-circle-sharp"
+                size={20}
+                color="#1ce571ff"
+              />
+              <View style={{ marginLeft: 8 }}>
+                <Text style={styles.summaryLabel}>Pemasukan</Text>
+                <Text
+                  style={[styles.summaryAmountIncome, { color: '#3ce571ff' }]}
+                >
+                  {formatCurrency(totalIncome)}
+                </Text>
+              </View>
+            </View>
+
+            {/* PENGELUARAN */}
+            <View style={styles.balanceSummaryItem}>
+              <Ionicons
+                name="arrow-down-circle-sharp"
+                size={20}
+                color="#DC143C"
+              />
+              <View style={{ marginLeft: 8 }}>
+                <Text style={styles.summaryLabel}>Pengeluaran</Text>
+                <Text
+                  style={[styles.summaryAmountExpense, { color: '#DC143C' }]}
+                >
+                  {formatCurrency(totalExpense)}
+                </Text>
+              </View>
+            </View>
           </View>
+        </LinearGradient>
 
-          <View style={styles.statBox}>
-            <Ionicons name="trending-down" size={24} color="#FFFFFF" />
-            <Text style={styles.statLabel}>Pengeluaran</Text>
-            <Text style={styles.expenseAmount}>
-              {formatCurrency(totalExpense)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 📊 Summary Cards */}
-      <View style={styles.summaryContainer}>
-        <View style={[styles.summaryCard, styles.transactionCard]}>
-          <View>
-            <Text style={styles.summaryLabel}>Total Transaksi</Text>
-            <Text style={styles.summaryValue}>{transactions.length}</Text>
-          </View>
-          <Ionicons
-            name="swap-horizontal"
-            size={48}
-            color="#10B981"
-            style={styles.summaryIconStyle}
-          />
-        </View>
-
-        <View style={[styles.summaryCard, styles.budgetCard]}>
-          <View>
-            <Text style={styles.summaryLabel}>Budget Aktif</Text>
-            <Text style={styles.summaryValue}>{activeBudgets}</Text>
-          </View>
-          <Ionicons
-            name="wallet"
-            size={48}
-            color="#3B82F6"
-            style={styles.summaryIconStyle}
-          />
-        </View>
-
-        <View style={[styles.summaryCard, styles.savingsCard]}>
-          <View>
-            <Text style={styles.summaryLabel}>Target Tabungan</Text>
-            <Text style={styles.summaryValue}>{savingsTargets}</Text>
-          </View>
-          <Ionicons
-            name="cash"
-            size={48}
-            color="#8B5CF6"
-            style={styles.summaryIconStyle}
-          />
-        </View>
-      </View>
-
-      {/* 📝 Recent Transactions */}
-      <View style={styles.recentSection}>
+        {/* 2. Budget Overview */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Transaksi Terbaru</Text>
-          <Text style={styles.sectionSubtitle}>5 transaksi terakhir</Text>
+          <Text style={styles.sectionTitle}>Budget & Peringatan</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Budget')}>
+            <Text style={styles.seeAllText}>Lihat Semua</Text>
+          </TouchableOpacity>
         </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.budgetScroll}
+          contentContainerStyle={{
+            paddingRight: 23,
+          }}
+        >
+          {budgets.length === 0 ? (
+            <View style={[styles.emptyCard, { width: 300 }]}>
+              <Ionicons name="pricetags-outline" size={30} color="#9CA3AF" />
+              <Text style={{ color: '#6B7280', marginTop: 8 }}>
+                Belum ada budget aktif.
+              </Text>
+            </View>
+          ) : (
+            budgets.slice(0, 3).map((budget, index) => {
+              const percentage = (budget.spent / budget.limit) * 100;
+              const remaining = budget.limit - budget.spent;
+              const isWarning = percentage >= 80 && percentage <= 100;
+              const isOverspent = percentage > 100;
 
-        {recentTransactions.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={64} color="#9CA3AF" />
-            <Text style={styles.emptyText}>Belum ada transaksi</Text>
-            <Text style={styles.emptySubtext}>
-              Transaksi Anda akan muncul di sini
+              const progressColor = isOverspent
+                ? EXPENSE_COLOR
+                : isWarning
+                ? '#F59E0B'
+                : SECONDARY_COLOR;
+
+              const categoryInfo = getBudgetCategoryInfo(budget.category);
+
+              return (
+                <View
+                  key={budget.id}
+                  style={[
+                    styles.budgetCard,
+                    { borderLeftColor: progressColor },
+                  ]}
+                >
+                  <View style={styles.budgetCardHeader}>
+                    <Text style={styles.budgetEmoji}>{categoryInfo.emoji}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.budgetCategory}>
+                        {budget.category}
+                      </Text>
+                      <Text style={styles.budgetPeriod}>
+                        {budget.period === 'monthly'
+                          ? '📆 Bulanan'
+                          : '🗓️ Mingguan'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.budgetRemaining}>
+                    {isOverspent ? 'Overspent' : 'Sisa'}:{' '}
+                    {formatCurrency(Math.abs(remaining))}
+                  </Text>
+                  <Text style={styles.budgetLimit}>
+                    Limit: {formatCurrency(budget.limit)}
+                  </Text>
+                  <View style={styles.progressBarContainer}>
+                    <View
+                      style={[
+                        styles.progressBar,
+                        {
+                          width: (Math.min(100, percentage) + '%') as any,
+                          backgroundColor: progressColor,
+                        },
+                      ]}
+                    />
+                  </View>
+                  {(isWarning || isOverspent) && (
+                    <Text style={[styles.alertText, { color: progressColor }]}>
+                      <Ionicons
+                        name={
+                          isOverspent ? 'alert-circle-sharp' : 'warning-sharp'
+                        }
+                        size={14}
+                      />{' '}
+                      {Math.round(percentage)}% Terpakai
+                    </Text>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+
+        {/* 3. Savings Goal */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Target Tabungan</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Tabungan')}>
+            <Text style={styles.seeAllText}>Lihat Semua</Text>
+          </TouchableOpacity>
+        </View>
+        {firstSavingGoal ? (
+          <View style={styles.savingCard}>
+            <View style={styles.savingIconContainer}>
+              <Text style={styles.savingEmoji}>
+                {getSavingIconInfo(firstSavingGoal.icon || 'star').emoji}
+              </Text>
+            </View>
+            <View style={styles.savingContent}>
+              <Text style={styles.savingTitle}>{firstSavingGoal.goal}</Text>
+              <Text style={styles.savingLimit}>
+                Target: {formatCurrency(firstSavingGoal.target || 0)}
+              </Text>
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      width: (savingProgressPercentage + '%') as any,
+                      backgroundColor: SECONDARY_COLOR,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={styles.savingRemaining}>
+              {formatCurrency(firstSavingGoal.amount)}
             </Text>
           </View>
         ) : (
-          recentTransactions.map((transaction, index) => {
-            const isIncome = transaction.amount > 0;
-            const iconName = getIconForTransaction(transaction);
-            const iconColor = getIconColor(transaction);
-
-            return (
-              <View
-                key={transaction.id || index}
-                style={styles.transactionItem}
-              >
-                <View
-                  style={[
-                    styles.transactionIcon,
-                    { backgroundColor: iconColor + '20' },
-                  ]}
-                >
-                  <Ionicons name={iconName} size={24} color={iconColor} />
-                </View>
-                <View style={styles.transactionDetails}>
-                  <Text style={styles.transactionTitle}>
-                    {transaction.description || 'Transaksi'}
-                  </Text>
-                  <Text style={styles.transactionCategory}>
-                    {transaction.category} • {formatDate(transaction.date)}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.transactionAmount,
-                    isIncome ? styles.positiveAmount : styles.negativeAmount,
-                  ]}
-                >
-                  {isIncome ? '+' : '-'}{' '}
-                  {formatCurrency(Math.abs(transaction.amount))}
-                </Text>
-              </View>
-            );
-          })
+          <View style={[styles.emptyCard, { marginHorizontal: 20 }]}>
+            <Ionicons name="cash-outline" size={30} color="#9CA3AF" />
+            <Text style={{ color: '#6B7280', marginTop: 8 }}>
+              Tambahkan target tabungan pertama Anda.
+            </Text>
+          </View>
         )}
-      </View>
 
-      {/* 💡 Quick Tips */}
-      <View style={styles.tipsCard}>
-        <View style={styles.tipsHeader}>
-          <Ionicons name="bulb" size={24} color="#F59E0B" />
-          <Text style={styles.tipsTitle}>Tips Keuangan</Text>
+        {/* ✅ 4. Transaksi Terbaru - FIXED MINUS SIGN */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Transaksi Terbaru</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Transaksi')}>
+            <Text style={styles.seeAllText}>Lihat Semua</Text>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.tipsText}>
-          • Sisihkan minimal 20% dari pendapatan untuk tabungan{'\n'}• Review
-          budget Anda setiap bulan{'\n'}• Hindari utang konsumtif yang tidak
-          perlu
-        </Text>
-      </View>
-    </ScrollView>
+        <View style={styles.transactionsList}>
+          {recentTransactions.length > 0 ? (
+            recentTransactions.map((t, index) => {
+              const info = getTransactionInfo(t);
+              return (
+                <View
+                  key={t.id}
+                  style={[
+                    styles.transactionItem,
+                    index === recentTransactions.length - 1 && {
+                      borderBottomWidth: 0,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.transactionIconContainer,
+                      { backgroundColor: info.iconColor + '20' },
+                    ]}
+                  >
+                    <Text style={styles.transactionEmoji}>{info.emoji}</Text>
+                  </View>
+                  <View style={styles.transactionContent}>
+                    <Text style={styles.transactionTitle} numberOfLines={1}>
+                      {info.title}
+                    </Text>
+                    <Text style={styles.transactionCategoryDate}>
+                      {t.category} • {formatDate(t.date)}
+                    </Text>
+                  </View>
+                  {/* ✅ FIXED: Tampilkan tanda minus untuk pengeluaran */}
+                  <Text style={info.amountStyle}>
+                    {info.isIncome ? '+' : '-'}
+                    {info.amount}
+                  </Text>
+                </View>
+              );
+            })
+          ) : (
+            <View style={[styles.emptyCard, { marginHorizontal: 0 }]}>
+              <Ionicons
+                name="swap-horizontal-outline"
+                size={30}
+                color="#9CA3AF"
+              />
+              <Text style={{ color: '#6B7280', marginTop: 8 }}>
+                Belum ada transaksi.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* 5. Financial Tips Card */}
+        <View style={styles.financialTipsCard}>
+          <Ionicons
+            name="lightbulb-sharp"
+            size={24}
+            color={PRIMARY_COLOR}
+            style={{ marginRight: 10 }}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.tipTitle}>Tips Keuangan Hari Ini</Text>
+            <Text style={styles.tipText}>
+              Selalu alokasikan 10-20% dari penghasilan Anda untuk tabungan atau
+              investasi di awal bulan (Pay Yourself First).
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: BACKGROUND_COLOR,
+  },
+  errorText: {
+    color: EXPENSE_COLOR,
+    fontSize: 16,
   },
   balanceCard: {
     margin: 20,
-    marginTop: 20,
     padding: 24,
-    backgroundColor: '#10B981',
     borderRadius: 20,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  balanceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
   },
   balanceLabel: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#FFFFFF',
-    opacity: 0.9,
     marginBottom: 8,
-  },
-  walletIcon: {
-    opacity: 0.3,
+    fontWeight: '500',
   },
   balanceAmount: {
-    fontSize: 40,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 20,
   },
-  statsRow: {
+  balanceSummaryRow: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.3)',
+    paddingTop: 16,
   },
-  statBox: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
-    padding: 16,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    marginBottom: 4,
-    marginTop: 8,
-  },
-  incomeAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  expenseAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  summaryContainer: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+  balanceSummaryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    borderLeftWidth: 4,
-  },
-  transactionCard: {
-    borderLeftColor: '#10B981',
-  },
-  budgetCard: {
-    borderLeftColor: '#3B82F6',
-  },
-  savingsCard: {
-    borderLeftColor: '#8B5CF6',
+    flex: 1,
+    marginRight: 10,
   },
   summaryLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 4,
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '500',
   },
-  summaryValue: {
-    fontSize: 32,
+  summaryAmountIncome: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  summaryAmountExpense: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
   },
-  summaryIconStyle: {
-    opacity: 0.3,
+  seeAllText: {
+    fontSize: 14,
+    color: PRIMARY_COLOR,
+    fontWeight: '600',
   },
-  recentSection: {
-    margin: 20,
-    marginTop: 24,
-    backgroundColor: '#FFFFFF',
+  budgetScroll: {
+    paddingLeft: 20,
+    marginBottom: 20,
+  },
+  budgetCard: {
+    width: 280,
+    backgroundColor: CARD_BACKGROUND,
     borderRadius: 16,
-    padding: 20,
-    elevation: 3,
+    padding: 16,
+    marginRight: 18,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 5,
+    borderLeftWidth: 6,
   },
-  sectionHeader: {
-    marginBottom: 16,
+  budgetCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 10,
   },
-  sectionTitle: {
-    fontSize: 20,
+  budgetEmoji: {
+    fontSize: 28,
+  },
+  budgetCategory: {
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: 4,
   },
-  sectionSubtitle: {
+  budgetPeriod: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  budgetRemaining: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  budgetLimit: {
     fontSize: 12,
     color: '#6B7280',
+    marginTop: 2,
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  alertText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  savingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    padding: 16,
+    backgroundColor: CARD_BACKGROUND,
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    marginBottom: 20,
+  },
+  savingIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: PRIMARY_COLOR + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  savingEmoji: {
+    fontSize: 26,
+  },
+  savingContent: {
+    flex: 1,
+  },
+  savingTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  savingRemaining: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: PRIMARY_COLOR,
+  },
+  savingLimit: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  transactionsList: {
+    marginHorizontal: 20,
+    backgroundColor: CARD_BACKGROUND,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    marginBottom: 20,
   },
   transactionItem: {
     flexDirection: 'row',
@@ -379,82 +630,77 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  transactionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  transactionIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  transactionDetails: {
+  transactionEmoji: {
+    fontSize: 22,
+  },
+  transactionContent: {
     flex: 1,
   },
   transactionTitle: {
     fontSize: 15,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 4,
   },
-  transactionCategory: {
+  transactionCategoryDate: {
     fontSize: 12,
     color: '#6B7280',
   },
-  transactionAmount: {
-    fontSize: 16,
+  incomeAmount: {
+    fontSize: 15,
     fontWeight: 'bold',
+    color: INCOME_COLOR,
   },
-  positiveAmount: {
-    color: '#10B981',
+  expenseAmount: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: EXPENSE_COLOR,
   },
-  negativeAmount: {
-    color: '#EF4444',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 12,
-    fontWeight: '600',
-  },
-  emptySubtext: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 4,
-  },
-  tipsCard: {
+  financialTipsCard: {
     margin: 20,
-    marginTop: 0,
-    backgroundColor: '#FFFBEB',
-    borderRadius: 16,
-    padding: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#F59E0B',
-  },
-  tipsHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: PRIMARY_COLOR + '20',
+    backgroundColor: PRIMARY_COLOR + '10',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    marginBottom: 30,
   },
-  tipsTitle: {
+  tipTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#92400E',
+    color: PRIMARY_COLOR,
+    marginBottom: 5,
   },
-  tipsText: {
+  tipText: {
     fontSize: 14,
-    color: '#78350F',
-    lineHeight: 22,
+    color: '#374151',
+    lineHeight: 20,
   },
-  errorText: {
-    textAlign: 'center',
-    color: '#EF4444',
-    fontSize: 16,
-    marginTop: 100,
+  emptyCard: {
+    width: '100%',
+    backgroundColor: CARD_BACKGROUND,
+    borderRadius: 16,
+    padding: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
 });
 

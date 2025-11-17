@@ -1,29 +1,32 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { formatCurrency, formatDate } from '../utils/formatCurrency';
+import { Transaction } from '../api/api';
 
-// 🔹 Definisikan tipe data untuk transaksi
-interface Transaction {
-  id: string;
-  title: string;
-  category: string;
-  amount: number;
-  type: 'income' | 'expense';
-  date: string;
-  icon: string;
-}
+const INCOME_COLOR = '#10B981';
+const EXPENSE_COLOR = '#DC143C';
+const CARD_BACKGROUND = '#FFFFFF';
 
-// 🔹 Definisikan tipe props untuk komponen ini
 interface TransactionCardProps {
   transaction: Transaction;
-  onPress?: () => void; // opsional, biar bisa tanpa fungsi juga
+  icon: string; // This is now an emoji string
+  iconColor: string;
+  onPress?: () => void;
 }
 
 const TransactionCard: React.FC<TransactionCardProps> = ({
   transaction,
+  icon,
+  iconColor,
   onPress,
 }) => {
-  const isIncome = transaction.type === 'income';
+  const isIncome = transaction.type === 'income' || transaction.amount > 0;
+  const displayAmount = Math.abs(transaction.amount);
+
+  const title =
+    transaction.description && transaction.description.length > 0
+      ? transaction.description
+      : transaction.category;
 
   return (
     <TouchableOpacity
@@ -31,19 +34,27 @@ const TransactionCard: React.FC<TransactionCardProps> = ({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={styles.iconContainer}>
-        <Text style={styles.icon}>{transaction.icon}</Text>
+      {/* ✅ UPDATED: Icon menggunakan emoji */}
+      <View
+        style={[styles.iconContainer, { backgroundColor: iconColor + '20' }]}
+      >
+        <Text style={styles.iconEmoji}>{icon}</Text>
       </View>
+
       <View style={styles.content}>
-        <Text style={styles.title}>{transaction.title}</Text>
-        <Text style={styles.category}>{transaction.category}</Text>
-        <Text style={styles.date}>{formatDate(transaction.date)}</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.categoryAndDate}>
+          {transaction.category} - {formatDate(transaction.date)}
+        </Text>
       </View>
+
       <View style={styles.amountContainer}>
         <Text
           style={[styles.amount, isIncome ? styles.income : styles.expense]}
         >
-          {isIncome ? '+' : '-'} {formatCurrency(transaction.amount)}
+          {isIncome ? '+' : '-'} {formatCurrency(displayAmount)}
         </Text>
       </View>
     </TouchableOpacity>
@@ -54,26 +65,25 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: CARD_BACKGROUND,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    elevation: 2,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F3F4F6',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 15,
   },
-  icon: {
+  iconEmoji: {
     fontSize: 24,
   },
   content: {
@@ -81,20 +91,16 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#111827',
-    marginBottom: 2,
   },
-  category: {
-    fontSize: 13,
+  categoryAndDate: {
+    fontSize: 12,
     color: '#6B7280',
-    marginBottom: 2,
-  },
-  date: {
-    fontSize: 11,
-    color: '#9CA3AF',
+    marginTop: 2,
   },
   amountContainer: {
+    marginLeft: 10,
     alignItems: 'flex-end',
   },
   amount: {
@@ -102,10 +108,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   income: {
-    color: '#10B981',
+    color: INCOME_COLOR,
   },
   expense: {
-    color: '#EF4444',
+    color: EXPENSE_COLOR,
   },
 });
 
