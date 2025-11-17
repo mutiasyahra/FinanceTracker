@@ -140,11 +140,9 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   const selectedCategoryInfo = currentCategories.find(c => c.name === category);
 
   const handleSave = () => {
-    const amountNumber = parseFloat(
-      amount.replace(/\./g, '').replace(/,/g, '.'),
-    );
+    const amountNumber = parseFloat(amount.replace(/\D/g, ''));
 
-    if (!category || amountNumber <= 0) {
+    if (!category || amountNumber <= 0 || isNaN(amountNumber)) {
       Alert.alert(
         'Validasi Gagal',
         'Pilih kategori dan masukkan jumlah yang valid (> 0).',
@@ -152,15 +150,22 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
       return;
     }
 
+    // ✅ FIX: Konversi amount berdasarkan tipe transaksi
+    // Expense = negatif, Income = positif
+    const finalAmount =
+      type === 'expense' ? -Math.abs(amountNumber) : Math.abs(amountNumber);
+
     const newTransaction = {
       category,
-      amount: amountNumber,
+      amount: finalAmount, // ✅ Sudah negatif untuk expense, positif untuk income
       description,
       type,
       date,
     };
 
     onSave(newTransaction);
+
+    // Reset form
     setType('expense');
     setAmount('');
     setDescription('');
